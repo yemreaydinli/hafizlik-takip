@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Ders Kaydı{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-slate-800 mb-1">{{ student.full_name }}</h1>
+<p class="text-sm text-slate-500 mb-6">{% if lesson %}Ders kaydını düzenle{% else %}Yeni günlük ders kaydı{% endif %}</p>
+
+<div class="bg-white rounded-xl shadow p-6 max-w-3xl">
+  <form method="post">
+    {% csrf_token %}
+    <div class="grid md:grid-cols-3 gap-4 mb-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.date.label }}</label>
+        {{ form.date }}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.attendance.label }}</label>
+        {{ form.attendance }}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.quality.label }}</label>
+        {{ form.quality }}
+      </div>
+    </div>
+
+    <div id="ham-fields" class="grid md:grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_start_page.label }}</label>
+        {{ form.ham_start_page }}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_end_page.label }}</label>
+        {{ form.ham_end_page }}
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.notes.label }}</label>
+      {{ form.notes }}
+    </div>
+
+    <div class="mb-4 border-t border-slate-100 pt-4">
+      <p class="text-sm font-semibold text-slate-700 mb-2">Has (Tekrar) Sayfa Aralıkları</p>
+      {{ formset.management_form }}
+      <div id="revision-rows" class="space-y-2">
+        {% for rform in formset %}
+        <div class="flex items-center gap-2 revision-row">
+          {{ rform.id }}
+          <div class="grid grid-cols-2 gap-2 flex-1">
+            {{ rform.start_page }}
+            {{ rform.end_page }}
+          </div>
+          {% if rform.DELETE %}<label class="text-xs text-red-500 flex items-center gap-1">{{ rform.DELETE }} Sil</label>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" onclick="addRevisionRow()" class="mt-2 text-sm text-brand-700 hover:underline">+ Tekrar aralığı ekle</button>
+    </div>
+
+    <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 py-2.5 rounded-lg">Kaydet</button>
+    <a href="{% url 'students:detail' student.pk %}" class="ml-2 text-slate-500 text-sm">Vazgeç</a>
+  </form>
+</div>
+
+<script>
+  // Devam durumu "Gelmedi" ise ham/tekrar alanlarını gizle
+  const attendanceSelect = document.getElementById('id_attendance');
+  const hamFields = document.getElementById('ham-fields');
+  function toggleHamFields() {
+    if (attendanceSelect && attendanceSelect.value === 'absent') {
+      hamFields.style.display = 'none';
+    } else if (hamFields) {
+      hamFields.style.display = '';
+    }
+  }
+  if (attendanceSelect) {
+    attendanceSelect.addEventListener('change', toggleHamFields);
+    toggleHamFields();
+  }
+
+  // Yeni tekrar (has) satırı ekleme (Django formset TOTAL_FORMS güncellemesiyle)
+  function addRevisionRow() {
+    const totalForms = document.getElementById('id_revision_ranges-TOTAL_FORMS');
+    const idx = parseInt(totalForms.value, 10);
+    const container = document.getElementById('revision-rows');
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2 revision-row';
+    row.innerHTML = `
+      <div class="grid grid-cols-2 gap-2 flex-1">
+        <input type="number" name="revision_ranges-${idx}-start_page" min="1" max="604" placeholder="Baş." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <input type="number" name="revision_ranges-${idx}-end_page" min="1" max="604" placeholder="Bit." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      </div>`;
+    container.appendChild(row);
+    totalForms.value = idx + 1;
+  }
+</script>
+{% endblock %}

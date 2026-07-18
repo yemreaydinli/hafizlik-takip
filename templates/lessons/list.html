@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Ders Kayıtları{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-slate-800 mb-6">Günlük Ders Kayıtları</h1>
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-600 text-left">
+      <tr><th class="px-4 py-3">Öğrenci</th><th class="px-4 py-3">Tarih</th><th class="px-4 py-3">Devam</th><th class="px-4 py-3">Ham</th><th class="px-4 py-3">Tekrar</th><th class="px-4 py-3">Kalite</th><th class="px-4 py-3"></th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for lesson in lessons %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-3 font-medium"><a href="{% url 'students:detail' lesson.student.pk %}" class="hover:text-brand-700">{{ lesson.student.full_name }}</a></td>
+        <td class="px-4 py-3">{{ lesson.date|date:"d.m.Y" }}</td>
+        <td class="px-4 py-3">{{ lesson.get_attendance_display }}</td>
+        <td class="px-4 py-3">{{ lesson.ham_page_count }} sf.</td>
+        <td class="px-4 py-3">{{ lesson.revision_page_count }} sf.</td>
+        <td class="px-4 py-3">{{ lesson.get_quality_display|default:"-" }}</td>
+        <td class="px-4 py-3 text-right space-x-2">
+          <a href="{% url 'lessons:update' lesson.pk %}" class="text-brand-700 hover:underline">Düzenle</a>
+          <a href="{% url 'lessons:delete' lesson.pk %}" class="text-red-600 hover:underline">Sil</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">Kayıt bulunamadı.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if is_paginated %}
+<div class="mt-4 flex gap-2 text-sm">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300">Önceki</a>{% endif %}
+  <span class="px-3 py-1">Sayfa {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300">Sonraki</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

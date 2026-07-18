@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Hafızlık Haritası - {{ student.full_name }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800">🗺️ Görsel Hafızlık Haritası</h1>
+    <p class="text-sm text-slate-500">{{ student.full_name }} — %{{ summary.progress_percent }} tamamlandı</p>
+  </div>
+  <a href="{% url 'students:detail' student.pk %}" class="text-sm text-brand-700 hover:underline">← Öğrenci sayfasına dön</a>
+</div>
+
+<div class="flex flex-wrap gap-4 mb-6 text-sm">
+  <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-emerald-500 inline-block"></span> Tamamlandı ({{ summary.completed }})</span>
+  <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-amber-400 inline-block"></span> Tekrar Gerekiyor ({{ summary.needs_revision }})</span>
+  <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-slate-200 inline-block"></span> Çalışılmadı ({{ summary.not_studied }})</span>
+</div>
+
+<div class="bg-white rounded-xl shadow p-4">
+  <div class="grid grid-cols-[repeat(auto-fill,minmax(26px,1fr))] gap-1">
+    {% for page in page_map %}
+      <div title="Sayfa {{ page.page_number }}"
+           class="aspect-square rounded flex items-center justify-center text-[9px] font-medium
+             {% if page.status == 'green' %}bg-emerald-500 text-white
+             {% elif page.status == 'yellow' %}bg-amber-400 text-white
+             {% else %}bg-slate-200 text-slate-400{% endif %}">
+        {{ page.page_number }}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

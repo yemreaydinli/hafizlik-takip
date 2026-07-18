@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Tahmin - {{ student.full_name }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+  <h1 class="text-2xl font-bold text-slate-800">🔮 Tahmini Bitiş Tarihi — {{ student.full_name }}</h1>
+  <a href="{% url 'students:detail' student.pk %}" class="text-sm text-brand-700 hover:underline">← Öğrenci sayfasına dön</a>
+</div>
+
+{% if prediction and prediction.estimated_completion_date %}
+<div class="grid md:grid-cols-4 gap-4 mb-8">
+  <div class="bg-white rounded-xl shadow p-5">
+    <p class="text-xs text-slate-500">Tahmini Bitiş Tarihi</p>
+    <p class="text-xl font-bold text-brand-700">{{ prediction.estimated_completion_date|date:"d.m.Y" }}</p>
+  </div>
+  <div class="bg-white rounded-xl shadow p-5">
+    <p class="text-xs text-slate-500">Kalan Gün</p>
+    <p class="text-xl font-bold text-slate-800">{{ prediction.estimated_remaining_days }} gün</p>
+  </div>
+  <div class="bg-white rounded-xl shadow p-5">
+    <p class="text-xs text-slate-500">Kalan Sayfa</p>
+    <p class="text-xl font-bold text-slate-800">{{ prediction.remaining_pages }} sayfa</p>
+  </div>
+  <div class="bg-white rounded-xl shadow p-5">
+    <p class="text-xs text-slate-500">Güven Seviyesi</p>
+    <p class="text-xl font-bold
+      {% if prediction.confidence_level == 'high' %}text-emerald-600{% elif prediction.confidence_level == 'medium' %}text-amber-500{% else %}text-red-500{% endif %}">
+      {{ prediction.get_confidence_level_display }}
+    </p>
+  </div>
+</div>
+<p class="text-sm text-slate-500 mb-8">Hesaplama yöntemi: <strong>{{ prediction.get_method_used_display }}</strong> · Günlük ortalama ilerleme: <strong>{{ prediction.daily_pace }} sayfa/gün</strong> · Son hesaplama: {{ prediction.calculated_date|date:"d.m.Y" }}</p>
+{% else %}
+<div class="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl p-5 mb-8 text-sm">
+  Tahmin yapabilmek için henüz yeterli ders kaydı bulunmuyor veya öğrenci hafızlığını tamamlamış olabilir.
+</div>
+{% endif %}
+
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <div class="px-4 py-3 border-b border-slate-100 font-semibold text-slate-800">Tahmin Geçmişi</div>
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-600 text-left">
+      <tr><th class="px-4 py-2">Hesaplama Tarihi</th><th class="px-4 py-2">Tahmini Bitiş</th><th class="px-4 py-2">Kalan Gün</th><th class="px-4 py-2">Yöntem</th><th class="px-4 py-2">Güven</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for p in history %}
+      <tr>
+        <td class="px-4 py-2">{{ p.calculated_date|date:"d.m.Y" }}</td>
+        <td class="px-4 py-2">{{ p.estimated_completion_date|date:"d.m.Y"|default:"-" }}</td>
+        <td class="px-4 py-2">{{ p.estimated_remaining_days|default:"-" }}</td>
+        <td class="px-4 py-2">{{ p.get_method_used_display }}</td>
+        <td class="px-4 py-2">{{ p.get_confidence_level_display }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Tahmin geçmişi yok.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

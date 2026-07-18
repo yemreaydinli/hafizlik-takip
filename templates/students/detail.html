@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ student.full_name }}{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800">{{ student.full_name }}</h1>
+    <p class="text-sm text-slate-500">Hafızlığa başlama: {{ student.start_date|date:"d.m.Y" }} · Öğretici: {{ student.teacher.get_full_name|default:student.teacher.username }}</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'lessons:create' student.pk %}" class="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Ders Kaydı</a>
+    <a href="{% url 'students:update' student.pk %}" class="border border-slate-300 text-sm font-medium px-4 py-2 rounded-lg">Düzenle</a>
+  </div>
+</div>
+
+<div class="grid md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-xl shadow p-4">
+    <p class="text-xs text-slate-500">İlerleme</p>
+    <p class="text-xl font-bold text-brand-700">%{{ progress.progress_percent }}</p>
+    <div class="w-full bg-slate-100 rounded-full h-2 mt-2">
+      <div class="bg-brand-600 h-2 rounded-full" style="width: {{ progress.progress_percent }}%"></div>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <p class="text-xs text-slate-500">Tamamlanan Sayfa</p>
+    <p class="text-xl font-bold text-emerald-600">{{ progress.completed }} / {{ progress.total_pages }}</p>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <p class="text-xs text-slate-500">Tekrar Bekleyen</p>
+    <p class="text-xl font-bold text-amber-500">{{ progress.needs_revision }}</p>
+  </div>
+  <div class="bg-white rounded-xl shadow p-4">
+    <p class="text-xs text-slate-500">Durum</p>
+    <p class="text-xl font-bold text-slate-700">{{ student.get_status_display }}</p>
+  </div>
+</div>
+
+<div class="flex flex-wrap gap-3 mb-6">
+  <a href="{% url 'memorization:map' student.pk %}" class="bg-white shadow rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:text-brand-700">🗺️ Hafızlık Haritası</a>
+  <a href="{% url 'predictions:detail' student.pk %}" class="bg-white shadow rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:text-brand-700">🔮 Tahmini Bitiş Tarihi</a>
+</div>
+
+{% if notifications %}
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+  <p class="font-semibold text-amber-800 mb-2 text-sm">🔔 Aktif Uyarılar</p>
+  <ul class="text-sm text-amber-700 space-y-1">
+    {% for n in notifications %}<li>• {{ n.message }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <div class="px-4 py-3 border-b border-slate-100 font-semibold text-slate-800">Son Ders Kayıtları</div>
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-600 text-left">
+      <tr>
+        <th class="px-4 py-2">Tarih</th><th class="px-4 py-2">Devam</th><th class="px-4 py-2">Ham</th>
+        <th class="px-4 py-2">Tekrar</th><th class="px-4 py-2">Kalite</th><th class="px-4 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for lesson in lessons %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-2">{{ lesson.date|date:"d.m.Y" }}</td>
+        <td class="px-4 py-2">
+          {% if lesson.attendance == 'present' %}<span class="text-emerald-600">Geldi</span>
+          {% elif lesson.attendance == 'absent' %}<span class="text-red-500">Gelmedi</span>
+          {% else %}<span class="text-slate-500">İzinli</span>{% endif %}
+        </td>
+        <td class="px-4 py-2">{% if lesson.ham_page_count %}{{ lesson.ham_start_page }}–{{ lesson.ham_end_page }} ({{ lesson.ham_page_count }} sf.){% else %}-{% endif %}</td>
+        <td class="px-4 py-2">{{ lesson.revision_page_count }} sf.</td>
+        <td class="px-4 py-2">{{ lesson.get_quality_display|default:"-" }}</td>
+        <td class="px-4 py-2 text-right"><a href="{% url 'lessons:update' lesson.pk %}" class="text-brand-700 hover:underline">Düzenle</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Henüz ders kaydı yok.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

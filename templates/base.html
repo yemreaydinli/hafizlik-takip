@@ -1,0 +1,100 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Hafızlık Takip Sistemi{% endblock %}</title>
+<link rel="manifest" href="{% static 'manifest.json' %}">
+<meta name="theme-color" content="#065f46">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: { 50:'#ecfdf5',100:'#d1fae5',500:'#10b981',600:'#059669',700:'#047857',800:'#065f46',900:'#064e3b' }
+        }
+      }
+    }
+  }
+</script>
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+<style>
+  [x-cloak]{display:none!important}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+  /* Django form alanları için varsayılan Tailwind benzeri stil (sınıf atanmamışsa) */
+  form input:not([class]), form select:not([class]), form textarea:not([class]) {
+    width:100%; border:1px solid #cbd5e1; border-radius:0.5rem; padding:0.5rem 0.75rem; font-size:0.875rem;
+  }
+  form input:not([class]):focus, form select:not([class]):focus, form textarea:not([class]):focus {
+    outline:none; border-color:#10b981; box-shadow:0 0 0 2px rgba(16,185,129,.25);
+  }
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+{% if user.is_authenticated %}
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden md:flex md:flex-col w-64 bg-brand-800 text-emerald-50 shrink-0">
+    <div class="px-6 py-5 border-b border-emerald-700/50">
+      <p class="text-lg font-bold leading-tight">📖 Hafızlık Takip</p>
+      <p class="text-xs text-emerald-200">İlerleme Tahmin Platformu</p>
+    </div>
+    <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+      <a href="{% url 'core:dashboard' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'core' %}bg-brand-700{% endif %}">🏠 Panel</a>
+      <a href="{% url 'students:list' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'students' %}bg-brand-700{% endif %}">🎓 Öğrenciler</a>
+      <a href="{% url 'lessons:list' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'lessons' %}bg-brand-700{% endif %}">📝 Ders Kayıtları</a>
+      <a href="{% url 'notifications:list' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'notifications' %}bg-brand-700{% endif %}">
+        🔔 Uyarılar
+        {% if unread_notifications_count %}<span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{{ unread_notifications_count }}</span>{% endif %}
+      </a>
+      <a href="{% url 'reports:index' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'reports' %}bg-brand-700{% endif %}">📊 Raporlar</a>
+      {% if user.is_admin_role %}
+      <p class="pt-4 pb-1 px-3 text-xs uppercase tracking-wide text-emerald-300">Yönetim</p>
+      <a href="{% url 'accounts:teacher_list' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'accounts' %}bg-brand-700{% endif %}">👥 Öğreticiler</a>
+      <a href="/admin/" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700">⚙️ Django Admin</a>
+      {% endif %}
+    </nav>
+    <div class="px-4 py-4 border-t border-emerald-700/50 text-xs">
+      <p class="font-medium">{{ user.get_full_name|default:user.username }}</p>
+      <p class="text-emerald-300">{{ user.get_role_display }}</p>
+      <a href="{% url 'accounts:logout' %}" class="inline-block mt-2 text-emerald-200 hover:text-white underline">Çıkış Yap</a>
+    </div>
+  </aside>
+
+  <!-- Mobile top bar -->
+  <div class="md:hidden fixed top-0 inset-x-0 z-20 bg-brand-800 text-white flex items-center justify-between px-4 py-3">
+    <p class="font-bold">📖 Hafızlık Takip</p>
+    <button onclick="document.getElementById('mobile-menu').classList.toggle('hidden')" class="p-2">☰</button>
+  </div>
+  <div id="mobile-menu" class="hidden md:hidden fixed top-12 inset-x-0 z-20 bg-brand-800 text-emerald-50 px-4 py-3 space-y-1 text-sm">
+    <a href="{% url 'core:dashboard' %}" class="block py-2">🏠 Panel</a>
+    <a href="{% url 'students:list' %}" class="block py-2">🎓 Öğrenciler</a>
+    <a href="{% url 'lessons:list' %}" class="block py-2">📝 Ders Kayıtları</a>
+    <a href="{% url 'notifications:list' %}" class="block py-2">🔔 Uyarılar {% if unread_notifications_count %}({{ unread_notifications_count }}){% endif %}</a>
+    <a href="{% url 'reports:index' %}" class="block py-2">📊 Raporlar</a>
+    {% if user.is_admin_role %}<a href="{% url 'accounts:teacher_list' %}" class="block py-2">👥 Öğreticiler</a>{% endif %}
+    <a href="{% url 'accounts:logout' %}" class="block py-2 text-emerald-200">Çıkış Yap</a>
+  </div>
+
+  <!-- Main content -->
+  <main class="flex-1 md:ml-0 mt-12 md:mt-0 p-4 md:p-8 max-w-7xl mx-auto w-full">
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for message in messages %}
+          <div class="rounded-lg px-4 py-3 text-sm {% if message.tags == 'success' %}bg-emerald-100 text-emerald-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+</body>
+</html>

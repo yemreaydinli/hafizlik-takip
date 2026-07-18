@@ -1,0 +1,9 @@
+{
+  "name": "Hafızlık Takip Sistemi",
+  "short_name": "Hafızlık Takip",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#065f46",
+  "theme_color": "#065f46",
+  "description": "Hafızlık eğitimi takip ve akıllı ilerleme tahmin platformu"
+}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Giriş Yap - Hafızlık Takip Sistemi{% endblock %}
+{% block auth_content %}
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-800 to-brand-600 px-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+    <div class="text-center mb-6">
+      <p class="text-3xl mb-1">📖</p>
+      <h1 class="text-xl font-bold text-slate-800">Hafızlık Takip Sistemi</h1>
+      <p class="text-sm text-slate-500">Akıllı İlerleme Tahmin Platformu</p>
+    </div>
+    {% if form.errors %}
+      <div class="mb-4 rounded-lg bg-red-100 text-red-700 text-sm px-4 py-3">Kullanıcı adı veya şifre hatalı.</div>
+    {% endif %}
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Kullanıcı Adı</label>
+        {{ form.username }}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Şifre</label>
+        {{ form.password }}
+      </div>
+      <button type="submit" class="w-full bg-brand-700 hover:bg-brand-800 text-white font-semibold py-2.5 rounded-lg transition">Giriş Yap</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

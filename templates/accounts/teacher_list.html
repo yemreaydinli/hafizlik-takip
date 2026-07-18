@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Öğreticiler{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-800">Hafız Yetiştiriciler</h1>
+  <a href="{% url 'accounts:teacher_create' %}" class="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Yeni Öğretici</a>
+</div>
+<div class="bg-white rounded-xl shadow overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-100 text-slate-600 text-left">
+      <tr><th class="px-4 py-3">Ad Soyad</th><th class="px-4 py-3">Kullanıcı Adı</th><th class="px-4 py-3">E-posta</th><th class="px-4 py-3">Telefon</th><th class="px-4 py-3">Durum</th><th class="px-4 py-3"></th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for teacher in teachers %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-3 font-medium">{{ teacher.get_full_name|default:"-" }}</td>
+        <td class="px-4 py-3">{{ teacher.username }}</td>
+        <td class="px-4 py-3">{{ teacher.email|default:"-" }}</td>
+        <td class="px-4 py-3">{{ teacher.phone|default:"-" }}</td>
+        <td class="px-4 py-3">
+          {% if teacher.is_active %}<span class="text-emerald-600">Aktif</span>{% else %}<span class="text-slate-400">Pasif</span>{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right space-x-2">
+          <a href="{% url 'accounts:teacher_update' teacher.pk %}" class="text-brand-700 hover:underline">Düzenle</a>
+          <a href="{% url 'accounts:teacher_delete' teacher.pk %}" class="text-red-600 hover:underline">Sil</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Henüz öğretici eklenmedi.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
