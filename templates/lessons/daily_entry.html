@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Bugünkü Ders Girişi{% endblock %}
+{% block content %}
+<div class="max-w-xl">
+  <h1 class="text-2xl font-bold text-slate-800 mb-1">🗓️ Bugünkü Ders Girişi</h1>
+  <p class="text-sm text-slate-500 mb-6">{{ today|date:"d.m.Y" }} tarihi için kayıtlı bir öğrenci seçin; ham veya has (tekrar) dersini hemen girin.</p>
+
+  <div class="bg-white rounded-xl shadow p-6">
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Öğrenci</label>
+        <select name="student" required class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+          <option value="">— Öğrenci seçin —</option>
+          {% for s in students %}
+            <option value="{{ s.pk }}">{{ s.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if not students %}
+        <p class="text-sm text-amber-600">Henüz size ait aktif bir öğrenci bulunmuyor. Önce <a href="{% url 'students:create' %}" class="underline">yeni bir öğrenci ekleyin</a>.</p>
+      {% endif %}
+      <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white font-semibold px-5 py-2.5 rounded-lg w-full">Derse Devam Et →</button>
+    </form>
+  </div>
+
+  <p class="text-xs text-slate-400 mt-4">Seçtiğiniz öğrenci için bugüne ait bir kayıt varsa otomatik olarak düzenleme ekranına yönlendirilirsiniz; yoksa tarih bugün olarak önceden doldurulmuş yeni bir kayıt formu açılır.</p>
+</div>
+{% endblock %}

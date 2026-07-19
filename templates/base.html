@@ -44,6 +44,7 @@
     </div>
     <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
       <a href="{% url 'core:dashboard' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'core' %}bg-brand-700{% endif %}">🏠 Panel</a>
+      <a href="{% url 'lessons:daily_entry' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium {% if request.resolver_match.url_name == 'daily_entry' %}ring-2 ring-white{% endif %}">🗓️ Bugünkü Ders Gir</a>
       <a href="{% url 'students:list' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'students' %}bg-brand-700{% endif %}">🎓 Öğrenciler</a>
       <a href="{% url 'lessons:list' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'lessons' %}bg-brand-700{% endif %}">📝 Ders Kayıtları</a>
       <a href="{% url 'notifications:list' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'notifications' %}bg-brand-700{% endif %}">
@@ -60,7 +61,10 @@
     <div class="px-4 py-4 border-t border-emerald-700/50 text-xs">
       <p class="font-medium">{{ user.get_full_name|default:user.username }}</p>
       <p class="text-emerald-300">{{ user.get_role_display }}</p>
-      <a href="{% url 'accounts:logout' %}" class="inline-block mt-2 text-emerald-200 hover:text-white underline">Çıkış Yap</a>
+      <form method="post" action="{% url 'accounts:logout' %}" class="mt-2">
+        {% csrf_token %}
+        <button type="submit" class="text-emerald-200 hover:text-white underline">Çıkış Yap</button>
+      </form>
     </div>
   </aside>
 
@@ -71,12 +75,16 @@
   </div>
   <div id="mobile-menu" class="hidden md:hidden fixed top-12 inset-x-0 z-20 bg-brand-800 text-emerald-50 px-4 py-3 space-y-1 text-sm">
     <a href="{% url 'core:dashboard' %}" class="block py-2">🏠 Panel</a>
+    <a href="{% url 'lessons:daily_entry' %}" class="block py-2 font-semibold text-emerald-200">🗓️ Bugünkü Ders Gir</a>
     <a href="{% url 'students:list' %}" class="block py-2">🎓 Öğrenciler</a>
     <a href="{% url 'lessons:list' %}" class="block py-2">📝 Ders Kayıtları</a>
     <a href="{% url 'notifications:list' %}" class="block py-2">🔔 Uyarılar {% if unread_notifications_count %}({{ unread_notifications_count }}){% endif %}</a>
     <a href="{% url 'reports:index' %}" class="block py-2">📊 Raporlar</a>
     {% if user.is_admin_role %}<a href="{% url 'accounts:teacher_list' %}" class="block py-2">👥 Öğreticiler</a>{% endif %}
-    <a href="{% url 'accounts:logout' %}" class="block py-2 text-emerald-200">Çıkış Yap</a>
+    <form method="post" action="{% url 'accounts:logout' %}" class="pt-1">
+      {% csrf_token %}
+      <button type="submit" class="block py-2 text-emerald-200">Çıkış Yap</button>
+    </form>
   </div>
 
   <!-- Main content -->

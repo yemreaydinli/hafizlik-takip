@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Panel{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-slate-800 mb-1">Merhaba, {{ user.get_full_name|default:user.username }} 👋</h1>
+<div class="flex flex-wrap items-center justify-between gap-4 mb-1">
+  <h1 class="text-2xl font-bold text-slate-800">Merhaba, {{ user.get_full_name|default:user.username }} 👋</h1>
+  <a href="{% url 'lessons:daily_entry' %}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow">🗓️ Bugünkü Ders Gir</a>
+</div>
 <p class="text-slate-500 mb-6">İşte bugünün özeti.</p>
 
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

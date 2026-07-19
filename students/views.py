@@ -63,9 +63,14 @@ class StudentCreateView(StudentScopedMixin, CreateView):
     form_class = StudentForm
     template_name = "students/form.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         if self.request.user.is_admin_role:
-            form.instance.teacher = form.instance.teacher or self.request.user
+            form.instance.teacher = form.cleaned_data["teacher"]
         else:
             form.instance.teacher = self.request.user
         messages.success(self.request, "Öğrenci eklendi.")
@@ -77,7 +82,14 @@ class StudentUpdateView(StudentScopedMixin, UpdateView):
     form_class = StudentForm
     template_name = "students/form.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
+        if self.request.user.is_admin_role and "teacher" in form.cleaned_data:
+            form.instance.teacher = form.cleaned_data["teacher"]
         messages.success(self.request, "Öğrenci bilgileri güncellendi.")
         return super().form_valid(form)
 

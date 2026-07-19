@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import ListView
 
 from students.models import Student
@@ -34,6 +35,14 @@ class LessonListView(LoginRequiredMixin, ListView):
 
 def lesson_create(request, student_pk):
     student = get_object_or_404(_scoped_students(request.user), pk=student_pk)
+
+    # Bu öğrenci için bugüne ait bir kayıt zaten varsa, tekrar oluşturmak yerine düzenlemeye yönlendir.
+    today = timezone.localdate()
+    existing_today = LessonRecord.objects.filter(student=student, date=today).first()
+    if existing_today and request.method == "GET" and request.GET.get("today") == "1":
+        messages.info(request, "Bu öğrenci için bugüne ait bir ders kaydı zaten var, üzerinde düzenleme yapabilirsiniz.")
+        return redirect(reverse("lessons:update", kwargs={"pk": existing_today.pk}))
+
     instance = LessonRecord(student=student, created_by=request.user)
 
     if request.method == "POST":
@@ -49,12 +58,27 @@ def lesson_create(request, student_pk):
         else:
             formset = RevisionRecordFormSet(request.POST, instance=instance)
     else:
-        form = LessonRecordForm(instance=instance, initial={"date": None})
+        initial_date = today if request.GET.get("today") == "1" else None
+        form = LessonRecordForm(instance=instance, initial={"date": initial_date})
         formset = RevisionRecordFormSet(instance=instance)
 
     return render(request, "lessons/form.html", {
         "form": form, "formset": formset, "student": student,
     })
+
+
+def daily_entry(request):
+    """'Bugünkü Ders Gir' hızlı giriş ekranı: öğrenci seçilir, seçilince o öğrencinin
+    bugünkü ders formuna (tarih otomatik dolu) yönlendirilir."""
+    students = _scoped_students(request.user).filter(status=Student.Status.ACTIVE).order_by("full_name")
+
+    if request.method == "POST":
+        student_pk = request.POST.get("student")
+        if student_pk:
+            return redirect(f"{reverse('lessons:create', kwargs={'student_pk': student_pk})}?today=1")
+        messages.error(request, "Lütfen bir öğrenci seçin.")
+
+    return render(request, "lessons/daily_entry.html", {"students": students, "today": timezone.localdate()})
 
 
 def lesson_update(request, pk):

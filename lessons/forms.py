@@ -1,5 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
+from core.widgets import ISODateInput
 
 from .models import LessonRecord
 from memorization.models import RevisionRecord
@@ -12,7 +13,7 @@ class LessonRecordForm(forms.ModelForm):
         model = LessonRecord
         fields = ["date", "attendance", "ham_start_page", "ham_end_page", "quality", "notes"]
         widgets = {
-            "date": forms.DateInput(attrs={"type": "date", "class": TAILWIND_INPUT}),
+            "date": ISODateInput(attrs={"class": TAILWIND_INPUT}),
             "attendance": forms.Select(attrs={"class": TAILWIND_INPUT, "id": "id_attendance"}),
             "ham_start_page": forms.NumberInput(attrs={"class": TAILWIND_INPUT, "min": 1, "max": 604}),
             "ham_end_page": forms.NumberInput(attrs={"class": TAILWIND_INPUT, "min": 1, "max": 604}),
