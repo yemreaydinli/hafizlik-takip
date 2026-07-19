@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Sistemi Sıfırla{% endblock %}
+{% block content %}
+<div class="max-w-xl">
+  <h1 class="text-2xl font-bold text-red-700 mb-1">⚠️ Sistemi Sıfırla</h1>
+  <p class="text-sm text-slate-500 mb-6">
+    Bu işlem <strong>geri alınamaz</strong>. Tüm öğrenciler, ders kayıtları, hafızlık haritaları,
+    tahminler, uyarılar ve <strong>mevcut tüm kullanıcı hesapları</strong> (demo dahil) kalıcı olarak silinir.
+    Yerine aşağıda belirttiğiniz bilgilerle tek bir yeni yönetici hesabı oluşturulur.
+    Genellikle sistemi müşteriye/gerçek kullanıma teslim etmeden hemen önce, bir kereye mahsus kullanılır.
+  </p>
+
+  <div class="bg-white border border-red-200 rounded-xl shadow p-6">
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Yeni Yönetici Kullanıcı Adı</label>
+        <input type="text" name="new_username" value="{{ new_username|default:'' }}" required
+               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 mb-1">Yeni Yönetici E-posta (opsiyonel)</label>
+        <input type="email" name="new_email" value="{{ new_email|default:'' }}"
+               class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Yeni Şifre</label>
+          <input type="password" name="new_password" required minlength="8"
+                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Yeni Şifre (Tekrar)</label>
+          <input type="password" name="new_password_repeat" required minlength="8"
+                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+        </div>
+      </div>
+
+      <div class="border-t border-slate-100 pt-4">
+        <label class="block text-sm font-medium text-slate-600 mb-1">
+          Onaylamak için aşağıya birebir şunu yazın: <code class="bg-slate-100 px-1.5 py-0.5 rounded text-red-600 font-mono">{{ confirm_phrase }}</code>
+        </label>
+        <input type="text" name="confirm_text" required
+               class="w-full rounded-lg border border-red-300 px-3 py-2 text-sm focus:border-red-500 focus:ring-red-500">
+      </div>
+
+      <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-3 rounded-lg">
+        Her Şeyi Sil ve Sistemi Sıfırla
+      </button>
+      <a href="{% url 'core:dashboard' %}" class="block text-center text-sm text-slate-500 hover:underline">Vazgeç, Panele Dön</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

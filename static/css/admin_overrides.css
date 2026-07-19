@@ -1,0 +1,126 @@
+/*
+ * Django Admin renk/tasarım özelleştirmesi.
+ * Django'nun admin arayüzü CSS custom property (değişken) kullandığı için
+ * mevcut şablon yapısını bozmadan, sadece renk paletini uygulama markasıyla
+ * (koyu yeşil, #065f46) eşleştiriyoruz.
+ */
+
+:root, html[data-theme="light"] {
+  --primary: #065f46;
+  --primary-fg: #f0fdf4;
+  --secondary: #047857;
+  --accent: #059669;
+
+  --header-color: #ecfdf5;
+  --header-branding-color: var(--header-color);
+  --header-bg: #065f46;
+  --header-link-color: var(--header-color);
+
+  --breadcrumbs-fg: #d1fae5;
+  --breadcrumbs-link-fg: #ffffff;
+  --breadcrumbs-bg: #047857;
+
+  --link-fg: #047857;
+  --link-hover-color: #065f46;
+  --link-selected-fg: #065f46;
+
+  --button-bg: var(--primary);
+  --button-hover-bg: #047857;
+  --default-button-bg: var(--primary);
+  --default-button-hover-bg: #047857;
+
+  --object-tools-bg: var(--primary);
+  --object-tools-hover-bg: #047857;
+}
+
+html[data-theme="dark"] {
+  --primary: #10b981;
+  --header-bg: #052e21;
+  --header-color: #d1fae5;
+  --header-link-color: #d1fae5;
+  --breadcrumbs-bg: #064e3b;
+}
+
+/* --- Üst başlık (header) yeniden tasarımı --- */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 40px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+#site-branding {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+#site-branding #site-name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+#site-branding #site-name a:link,
+#site-branding #site-name a:visited {
+  color: var(--header-color);
+}
+
+#site-branding #site-tagline {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: rgba(236, 253, 245, 0.75);
+}
+
+/* --- Kullanıcı araçları (sağ üst: hoş geldin / çıkış) --- */
+#user-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: none;
+}
+
+#user-tools strong {
+  color: #ffffff;
+}
+
+#user-tools a {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--header-link-color);
+  text-transform: none;
+  transition: background 0.15s ease;
+  border-bottom: none !important;
+}
+
+#user-tools a:hover {
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
+#user-tools .theme-toggle {
+  background: transparent;
+}
+
+/* --- Breadcrumbs ve modül başlıkları biraz daha yumuşak --- */
+div.breadcrumbs {
+  font-size: 12.5px;
+  padding: 10px 40px;
+}
+
+.module h2, .module caption, .inline-group h2 {
+  font-weight: 600;
+}
+
+/* --- Dashboard modül kartları --- */
+#content-main .module {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}

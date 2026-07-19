@@ -1,0 +1,16 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/admin_overrides.css' %}">
+{% endblock %}
+
+{% block branding %}
+<div id="site-branding">
+  <h1 id="site-name"><a href="{% url 'admin:index' %}">📖 Hafızlık Takip Sistemi</a></h1>
+  <p id="site-tagline">Yönetim Paneli</p>
+</div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
