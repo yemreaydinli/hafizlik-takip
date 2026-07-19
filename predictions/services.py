@@ -16,11 +16,17 @@ from lessons.models import PerformanceHistory
 from .models import PredictionHistory
 
 
-def _ema(values, alpha):
+def _ema(values, alpha, seed_window=5):
+    """
+    Üstel Hareketli Ortalama. Tek bir ilk değerle başlamak yerine ilk birkaç günün
+    ortalamasıyla ('seed') başlar; böylece basit ortalamadan EMA'ya geçiş daha
+    pürüzsüz ve tek bir uç değere karşı daha dayanıklı olur.
+    """
     if not values:
         return 0.0
-    ema_value = values[0]
-    for v in values[1:]:
+    seed_count = min(seed_window, len(values))
+    ema_value = sum(values[:seed_count]) / seed_count
+    for v in values[seed_count:]:
         ema_value = alpha * v + (1 - alpha) * ema_value
     return ema_value
 

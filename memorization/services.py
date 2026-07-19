@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.utils import timezone
 from .models import MemorizationPage
 
 
@@ -16,6 +17,30 @@ def get_page_map(student):
         status = page.status if page else MemorizationPage.Status.NOT_STUDIED
         page_map.append({"page_number": page_no, "status": status})
     return page_map
+
+
+def bulk_apply_range(student, start_page, end_page, status):
+    """
+    Bir sayfa aralığını topluca belirli bir duruma getirir.
+    Özellikle öğrenci sisteme kaydedilmeden ÖNCE zaten ezberlemiş olduğu sayfaları
+    (Başlangıç Durumu Aktarımı) tek seferde işaretlemek için kullanılır; bu sayede
+    Akıllı Tahmin Motoru "kalan sayfa" hesabını gerçek duruma göre yapar.
+    """
+    today = timezone.localdate()
+    start_page, end_page = min(start_page, end_page), max(start_page, end_page)
+    updated = 0
+    for page_no in range(start_page, end_page + 1):
+        page, _ = MemorizationPage.objects.get_or_create(student=student, page_number=page_no)
+        page.status = status
+        if status == MemorizationPage.Status.COMPLETED:
+            page.last_revised_date = page.last_revised_date or today
+            page.first_memorized_date = page.first_memorized_date or today
+            page.revision_count = max(page.revision_count, 1)
+        elif status == MemorizationPage.Status.NEEDS_REVISION:
+            page.first_memorized_date = page.first_memorized_date or today
+        page.save()
+        updated += 1
+    return updated
 
 
 def get_progress_summary(student):

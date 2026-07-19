@@ -15,7 +15,7 @@
   <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-slate-200 inline-block"></span> Çalışılmadı ({{ summary.not_studied }})</span>
 </div>
 
-<div class="bg-white rounded-xl shadow p-4">
+<div class="bg-white rounded-xl shadow p-4 mb-6">
   <div class="grid grid-cols-[repeat(auto-fill,minmax(26px,1fr))] gap-1">
     {% for page in page_map %}
       <div title="Sayfa {{ page.page_number }}"
@@ -27,5 +27,39 @@
       </div>
     {% endfor %}
   </div>
+</div>
+
+<div class="bg-white rounded-xl shadow p-5 max-w-2xl">
+  <h2 class="font-semibold text-slate-800 mb-1">📥 Başlangıç Durumu Aktarımı</h2>
+  <p class="text-xs text-slate-500 mb-4">
+    Öğrenci sisteme kaydedilmeden <strong>önce</strong> zaten ezberlediği veya tekrar ettiği sayfalar varsa,
+    aşağıdan toplu olarak işaretleyin. Aksi halde Akıllı Tahmin Motoru bu sayfaları "çalışılmadı" sayıp
+    tahmini bitiş tarihini olduğundan çok daha uzak gösterir.
+  </p>
+  <form method="post" class="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+    {% csrf_token %}
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">Başlangıç Sayfası</label>
+      <input type="number" name="start_page" min="1" max="604" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">Bitiş Sayfası</label>
+      <input type="number" name="end_page" min="1" max="604" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">Durum</label>
+      <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        {% for value, label in status_choices %}
+          {% if value != 'gray' %}<option value="{{ value }}">{{ label }}</option>{% endif %}
+        {% endfor %}
+        <option value="gray">Çalışılmadı (sıfırla)</option>
+      </select>
+    </div>
+    <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2.5 rounded-lg">Uygula</button>
+  </form>
+  <p class="text-xs text-slate-400 mt-3">
+    Örnek: Öğrenci sistemi kullanmaya başlamadan önce toplam 300 sayfa ezberlemiş ve düzenli tekrar ediyorsa,
+    1-300 aralığını "Tamamlandı" olarak işaretleyin. Sadece ezberlemiş ama henüz tekrarı oturmamışsa "Tekrar Gerekiyor" seçin.
+  </p>
 </div>
 {% endblock %}
