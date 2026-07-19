@@ -66,14 +66,22 @@ def calculate_prediction(student, persist=True):
     if not history:
         return None
 
-    days_elapsed = max((today - student.start_date).days, 1)
+    # ÖNEMLİ: Isınma dönemi (basit ortalama → EMA geçişi) öğrencinin GERÇEK hafızlığa
+    # başlama tarihine göre değil, sisteme ders kaydı girilmeye BAŞLANDIĞI tarihe göre
+    # hesaplanır. Aksi halde önceden ilerlemiş (örn. 2 yıldır hafız olan) bir öğrenci
+    # sisteme yeni eklendiğinde, "start_date" çok eskide kaldığı için sistem onu yanlışlıkla
+    # ısınma dönemini çoktan bitirmiş sayar ve sadece birkaç günlük veriyle EMA'ya geçer.
+    # Bu da yepyeni bir öğrenciyle (tam 30 gün basit ortalama alan) tutarsızlık yaratır.
+    tracking_start_date = history[0].date
+    days_tracked = max((today - tracking_start_date).days, 1)
+
     attended_days = [h for h in history if h.attended]
     attendance_rate = len(attended_days) / len(history) if history else 1
     attendance_rate = max(attendance_rate, 0.2)  # aşırı düşük tahminleri engellemek için taban
 
     memorization_values = [h.daily_memorization for h in history if h.daily_memorization > 0]
 
-    use_simple_average = days_elapsed <= settings.PREDICTION_SIMPLE_AVG_DAYS or len(history) < 5
+    use_simple_average = days_tracked <= settings.PREDICTION_SIMPLE_AVG_DAYS or len(history) < 5
 
     if use_simple_average:
         method = PredictionHistory.Method.SIMPLE_AVERAGE
