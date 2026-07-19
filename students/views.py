@@ -1,13 +1,18 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 
 from lessons.models import LessonRecord
-from memorization.services import get_progress_summary
+from lessons.services import get_attendance_summary, get_recent_performance_series
+from memorization.services import get_progress_summary, get_page_map, get_stale_pages
 from notifications.models import Notification
+from predictions.services import calculate_prediction
 from .forms import StudentForm
 from .models import Student
 
@@ -45,6 +50,11 @@ class StudentListView(StudentScopedMixin, ListView):
 
 
 class StudentDetailView(StudentScopedMixin, DetailView):
+    """
+    Öğrenci Genel Bakış sayfası: ilerleme, tahmin, devam istatistikleri,
+    performans grafiği, zayıf (uzun süredir tekrar bekleyen) sayfalar ve
+    ders/uyarı zaman çizelgesini tek ekranda birleştirir.
+    """
     model = Student
     template_name = "students/detail.html"
     context_object_name = "student"
@@ -52,9 +62,53 @@ class StudentDetailView(StudentScopedMixin, DetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         student = self.object
-        ctx["lessons"] = LessonRecord.objects.filter(student=student).order_by("-date")[:15]
-        ctx["progress"] = get_progress_summary(student)
-        ctx["notifications"] = Notification.objects.filter(student=student, is_read=False)[:5]
+
+        recent_lessons = list(LessonRecord.objects.filter(student=student).order_by("-date")[:15])
+        recent_notifications = list(Notification.objects.filter(student=student).order_by("-created_at")[:10])
+
+        # Ders kayıtları ve uyarıları tek bir zaman çizelgesinde birleştir.
+        timeline = []
+        for lesson in recent_lessons[:10]:
+            timeline.append({
+                "date": lesson.date,
+                "kind": "lesson",
+                "attendance": lesson.attendance,
+                "ham": lesson.ham_page_count,
+                "revision": lesson.revision_page_count,
+                "quality": lesson.get_quality_display() if lesson.quality else None,
+                "notes": lesson.notes,
+            })
+        for n in recent_notifications:
+            timeline.append({
+                "date": n.created_at.date(),
+                "kind": "alert",
+                "type_label": n.get_type_display(),
+                "message": n.message,
+            })
+        timeline.sort(key=lambda x: x["date"], reverse=True)
+
+        prediction = calculate_prediction(student, persist=True)
+        target_deviation_days = None
+        target_deviation_abs = None
+        if prediction and prediction.estimated_completion_date and student.target_completion_date:
+            target_deviation_days = (prediction.estimated_completion_date - student.target_completion_date).days
+            target_deviation_abs = abs(target_deviation_days)
+
+        performance_series = get_recent_performance_series(student, days=30)
+
+        ctx.update({
+            "lessons": recent_lessons,
+            "progress": get_progress_summary(student),
+            "notifications": Notification.objects.filter(student=student, is_read=False)[:5],
+            "attendance": get_attendance_summary(student),
+            "prediction": prediction,
+            "target_deviation_days": target_deviation_days,
+            "target_deviation_abs": target_deviation_abs,
+            "mini_page_map": get_page_map(student),
+            "stale_pages": get_stale_pages(student),
+            "performance_series_json": json.dumps(performance_series, cls=DjangoJSONEncoder),
+            "timeline": timeline[:12],
+        })
         return ctx
 
 

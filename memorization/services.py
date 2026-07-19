@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.utils import timezone
 from .models import MemorizationPage
@@ -57,3 +59,25 @@ def get_progress_summary(student):
         "memorized_total": memorized,
         "progress_percent": round((memorized / total) * 100, 1) if total else 0,
     }
+
+
+def get_stale_pages(student, days_threshold=14, limit=10):
+    """
+    Ezberlendiği halde uzun süredir hiç tekrar edilmemiş (durumu hâlâ 'sarı' olan)
+    sayfaları döndürür. Öğretmenin "buraya odaklan" diyebileceği risk listesidir.
+    """
+    today = timezone.localdate()
+    cutoff = today - timedelta(days=days_threshold)
+    stale = (
+        MemorizationPage.objects.filter(
+            student=student,
+            status=MemorizationPage.Status.NEEDS_REVISION,
+            first_memorized_date__lte=cutoff,
+        )
+        .order_by("first_memorized_date")[:limit]
+    )
+    result = []
+    for page in stale:
+        days_waiting = (today - page.first_memorized_date).days if page.first_memorized_date else None
+        result.append({"page_number": page.page_number, "days_waiting": days_waiting})
+    return result

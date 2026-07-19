@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.views import View
 
 from lessons.models import LessonRecord
@@ -17,6 +17,18 @@ def _scoped_students(user):
 class ReportIndexView(LoginRequiredMixin, View):
     def get(self, request):
         return render(request, "reports/index.html")
+
+
+class StudentReportCardView(LoginRequiredMixin, View):
+    """Tek bir öğrenci için indirilebilir PDF 'karne' raporu."""
+
+    def get(self, request, student_pk):
+        student = get_object_or_404(_scoped_students(request.user), pk=student_pk)
+        buffer = services.build_student_report_card_pdf(student)
+        response = HttpResponse(buffer.read(), content_type="application/pdf")
+        safe_name = student.full_name.replace(" ", "_")
+        response["Content-Disposition"] = f"attachment; filename=karne_{safe_name}.pdf"
+        return response
 
 
 REPORT_BUILDERS = {

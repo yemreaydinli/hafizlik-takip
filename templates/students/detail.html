@@ -1,17 +1,24 @@
 {% extends "base.html" %}
 {% block title %}{{ student.full_name }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
   <div>
     <h1 class="text-2xl font-bold text-slate-800">{{ student.full_name }}</h1>
     <p class="text-sm text-slate-500">Hafızlığa başlama: {{ student.start_date|date:"d.m.Y" }} · Öğretici: {{ student.teacher.get_full_name|default:student.teacher.username }}</p>
   </div>
-  <div class="flex gap-2">
-    <a href="{% url 'lessons:create' student.pk %}" class="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Ders Kaydı</a>
-    <a href="{% url 'students:update' student.pk %}" class="border border-slate-300 text-sm font-medium px-4 py-2 rounded-lg">Düzenle</a>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'lessons:create' student.pk %}?today=1" class="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Ders Kaydı</a>
+    <a href="{% url 'reports:student_card' student.pk %}" class="border border-slate-300 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50">📄 PDF Karne</a>
+    <a href="{% url 'students:update' student.pk %}" class="border border-slate-300 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50">Düzenle</a>
   </div>
 </div>
 
+<!-- Üst özet kartları -->
 <div class="grid md:grid-cols-4 gap-4 mb-6">
   <div class="bg-white rounded-xl shadow p-4">
     <p class="text-xs text-slate-500">İlerleme</p>
@@ -21,22 +28,118 @@
     </div>
   </div>
   <div class="bg-white rounded-xl shadow p-4">
-    <p class="text-xs text-slate-500">Tamamlanan Sayfa</p>
-    <p class="text-xl font-bold text-emerald-600">{{ progress.completed }} / {{ progress.total_pages }}</p>
+    <p class="text-xs text-slate-500">Devam Yüzdesi</p>
+    <p class="text-xl font-bold {% if attendance.attendance_percent >= 80 %}text-emerald-600{% elif attendance.attendance_percent >= 60 %}text-amber-500{% else %}text-red-500{% endif %}">%{{ attendance.attendance_percent }}</p>
+    <p class="text-xs text-slate-400 mt-1">{{ attendance.present }} geldi / {{ attendance.total }} ders</p>
   </div>
   <div class="bg-white rounded-xl shadow p-4">
-    <p class="text-xs text-slate-500">Tekrar Bekleyen</p>
-    <p class="text-xl font-bold text-amber-500">{{ progress.needs_revision }}</p>
+    <p class="text-xs text-slate-500">Tahmini Bitiş</p>
+    {% if prediction and prediction.estimated_completion_date %}
+      <p class="text-xl font-bold text-slate-800">{{ prediction.estimated_completion_date|date:"d.m.Y" }}</p>
+      <p class="text-xs text-slate-400 mt-1">{{ prediction.estimated_remaining_days }} gün kaldı</p>
+    {% else %}
+      <p class="text-sm text-slate-400 mt-1">Henüz yeterli veri yok</p>
+    {% endif %}
   </div>
   <div class="bg-white rounded-xl shadow p-4">
     <p class="text-xs text-slate-500">Durum</p>
     <p class="text-xl font-bold text-slate-700">{{ student.get_status_display }}</p>
+    {% if attendance.consecutive_absent >= 3 %}
+      <p class="text-xs text-red-500 mt-1">⚠ {{ attendance.consecutive_absent }} ardışık devamsızlık</p>
+    {% endif %}
   </div>
 </div>
 
-<div class="flex flex-wrap gap-3 mb-6">
-  <a href="{% url 'memorization:map' student.pk %}" class="bg-white shadow rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:text-brand-700">🗺️ Hafızlık Haritası</a>
-  <a href="{% url 'predictions:detail' student.pk %}" class="bg-white shadow rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:text-brand-700">🔮 Tahmini Bitiş Tarihi</a>
+<!-- Devam istatistikleri -->
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+  <div class="bg-white rounded-xl shadow p-5">
+    <h2 class="font-semibold text-slate-800 mb-4">🗓️ Devam / Yoklama İstatistikleri</h2>
+    <div class="grid grid-cols-3 gap-3 text-center">
+      <div>
+        <p class="text-2xl font-bold text-emerald-600">{{ attendance.present }}</p>
+        <p class="text-xs text-slate-500">Geldi</p>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-red-500">{{ attendance.absent }}</p>
+        <p class="text-xs text-slate-500">Gelmedi</p>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-slate-500">{{ attendance.excused }}</p>
+        <p class="text-xs text-slate-500">İzinli</p>
+      </div>
+    </div>
+    <div class="mt-4 pt-4 border-t border-slate-100 text-sm text-slate-600 space-y-1">
+      <p>Bu ay devamsızlık: <strong>{{ attendance.monthly_absent }}</strong></p>
+      <p>Ardışık devamsızlık: <strong>{{ attendance.consecutive_absent }}</strong></p>
+      <p>Toplam ders sayısı: <strong>{{ attendance.total }}</strong></p>
+    </div>
+  </div>
+
+  <!-- Hedef karşılaştırması -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <h2 class="font-semibold text-slate-800 mb-4">🎯 Hedef Karşılaştırması</h2>
+    {% if student.target_completion_date %}
+      <p class="text-sm text-slate-600 mb-2">Hedef Tarih: <strong>{{ student.target_completion_date|date:"d.m.Y" }}</strong></p>
+      {% if prediction and prediction.estimated_completion_date %}
+        <p class="text-sm text-slate-600 mb-3">Tahmini Tarih: <strong>{{ prediction.estimated_completion_date|date:"d.m.Y" }}</strong></p>
+        {% if target_deviation_days is not None %}
+          {% if target_deviation_days > 0 %}
+            <div class="bg-amber-50 text-amber-700 text-sm rounded-lg px-3 py-2">⏰ Hedeften <strong>{{ target_deviation_abs }} gün</strong> geride gidiyor.</div>
+          {% elif target_deviation_days < 0 %}
+            <div class="bg-emerald-50 text-emerald-700 text-sm rounded-lg px-3 py-2">🚀 Hedeften <strong>{{ target_deviation_abs }} gün</strong> önde gidiyor.</div>
+          {% else %}
+            <div class="bg-slate-50 text-slate-600 text-sm rounded-lg px-3 py-2">Tam hedefte gidiyor.</div>
+          {% endif %}
+        {% endif %}
+      {% else %}
+        <p class="text-sm text-slate-400">Tahmin için henüz yeterli veri yok.</p>
+      {% endif %}
+    {% else %}
+      <p class="text-sm text-slate-400">Bu öğrenci için hedef tarih belirlenmemiş. <a href="{% url 'students:update' student.pk %}" class="text-brand-700 hover:underline">Şimdi ekle</a></p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Performans grafiği -->
+<div class="bg-white rounded-xl shadow p-5 mb-6">
+  <h2 class="font-semibold text-slate-800 mb-4">📈 Son 30 Gün Performans Trendi</h2>
+  <canvas id="performanceChart" height="90"></canvas>
+  <p id="noChartData" class="text-sm text-slate-400 text-center py-6 hidden">Henüz grafik oluşturacak kadar veri yok.</p>
+</div>
+
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+  <!-- Hafızlık haritası mini önizleme -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-slate-800">🗺️ Hafızlık Haritası</h2>
+      <a href="{% url 'memorization:map' student.pk %}" class="text-xs text-brand-700 hover:underline">Tam haritayı gör →</a>
+    </div>
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(10px,1fr))] gap-[2px]">
+      {% for page in mini_page_map %}
+        <div title="Sayfa {{ page.page_number }}" class="aspect-square rounded-sm
+          {% if page.status == 'green' %}bg-emerald-500
+          {% elif page.status == 'yellow' %}bg-amber-400
+          {% else %}bg-slate-200{% endif %}"></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Zayıf noktalar -->
+  <div class="bg-white rounded-xl shadow p-5">
+    <h2 class="font-semibold text-slate-800 mb-3">⚠️ Uzun Süredir Tekrar Bekleyen Sayfalar</h2>
+    {% if stale_pages %}
+      <ul class="text-sm divide-y divide-slate-100">
+        {% for p in stale_pages %}
+        <li class="py-2 flex items-center justify-between">
+          <span>Sayfa <strong>{{ p.page_number }}</strong></span>
+          <span class="text-amber-600 text-xs">{{ p.days_waiting }} gündür bekliyor</span>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-sm text-slate-400">Şu an risk altında sayfa bulunmuyor. 👍</p>
+    {% endif %}
+  </div>
 </div>
 
 {% if notifications %}
@@ -48,33 +151,77 @@
 </div>
 {% endif %}
 
-<div class="bg-white rounded-xl shadow overflow-x-auto">
-  <div class="px-4 py-3 border-b border-slate-100 font-semibold text-slate-800">Son Ders Kayıtları</div>
-  <table class="w-full text-sm">
-    <thead class="bg-slate-100 text-slate-600 text-left">
-      <tr>
-        <th class="px-4 py-2">Tarih</th><th class="px-4 py-2">Devam</th><th class="px-4 py-2">Ham</th>
-        <th class="px-4 py-2">Tekrar</th><th class="px-4 py-2">Kalite</th><th class="px-4 py-2"></th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-slate-100">
-      {% for lesson in lessons %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-4 py-2">{{ lesson.date|date:"d.m.Y" }}</td>
-        <td class="px-4 py-2">
-          {% if lesson.attendance == 'present' %}<span class="text-emerald-600">Geldi</span>
-          {% elif lesson.attendance == 'absent' %}<span class="text-red-500">Gelmedi</span>
-          {% else %}<span class="text-slate-500">İzinli</span>{% endif %}
-        </td>
-        <td class="px-4 py-2">{% if lesson.ham_page_count %}{{ lesson.ham_start_page }}–{{ lesson.ham_end_page }} ({{ lesson.ham_page_count }} sf.){% else %}-{% endif %}</td>
-        <td class="px-4 py-2">{{ lesson.revision_page_count }} sf.</td>
-        <td class="px-4 py-2">{{ lesson.get_quality_display|default:"-" }}</td>
-        <td class="px-4 py-2 text-right"><a href="{% url 'lessons:update' lesson.pk %}" class="text-brand-700 hover:underline">Düzenle</a></td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Henüz ders kaydı yok.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<!-- Zaman çizelgesi -->
+<div class="bg-white rounded-xl shadow p-5">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="font-semibold text-slate-800">🕒 Zaman Çizelgesi</h2>
+    <a href="{% url 'lessons:list' %}?student={{ student.pk }}" class="text-xs text-brand-700 hover:underline">Tüm ders geçmişini gör →</a>
+  </div>
+  <ul class="space-y-4">
+    {% for item in timeline %}
+    <li class="flex gap-3">
+      <div class="flex flex-col items-center pt-1">
+        <span class="w-2.5 h-2.5 rounded-full {% if item.kind == 'alert' %}bg-amber-500{% elif item.attendance == 'present' %}bg-emerald-500{% elif item.attendance == 'absent' %}bg-red-500{% else %}bg-slate-400{% endif %}"></span>
+        <span class="w-px flex-1 bg-slate-100"></span>
+      </div>
+      <div class="pb-1 text-sm">
+        <p class="text-xs text-slate-400">{{ item.date|date:"d.m.Y" }}</p>
+        {% if item.kind == "alert" %}
+          <p class="text-amber-700"><span class="font-medium">{{ item.type_label }}</span> — {{ item.message }}</p>
+        {% else %}
+          {% if item.attendance == 'present' %}
+            <p class="text-slate-700">Ders işlendi — Ham: <strong>{{ item.ham }} sf.</strong>, Tekrar: <strong>{{ item.revision }} sf.</strong>{% if item.quality %}, Kalite: {{ item.quality }}{% endif %}</p>
+          {% elif item.attendance == 'absent' %}
+            <p class="text-red-600">Derse gelmedi.</p>
+          {% else %}
+            <p class="text-slate-500">İzinli.</p>
+          {% endif %}
+          {% if item.notes %}<p class="text-xs text-slate-400 mt-0.5">"{{ item.notes }}"</p>{% endif %}
+        {% endif %}
+      </div>
+    </li>
+    {% empty %}
+    <li class="text-sm text-slate-400">Henüz kayıt yok.</li>
+    {% endfor %}
+  </ul>
 </div>
+
+<script>
+(function() {
+  const seriesData = JSON.parse('{{ performance_series_json|escapejs }}');
+  const canvas = document.getElementById('performanceChart');
+  if (!seriesData.length) {
+    canvas.classList.add('hidden');
+    document.getElementById('noChartData').classList.remove('hidden');
+    return;
+  }
+  new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: seriesData.map(d => d.date),
+      datasets: [
+        {
+          label: 'Ham (Yeni Ezber)',
+          data: seriesData.map(d => d.memorization),
+          borderColor: '#059669',
+          backgroundColor: 'rgba(5,150,105,0.1)',
+          tension: 0.3,
+        },
+        {
+          label: 'Tekrar (Has)',
+          data: seriesData.map(d => d.revision),
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245,158,11,0.1)',
+          tension: 0.3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+})();
+</script>
 {% endblock %}

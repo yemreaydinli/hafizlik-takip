@@ -119,3 +119,78 @@ def prediction_rows_and_headers(students):
             pred.get_confidence_level_display(), pred.get_method_used_display(),
         ])
     return headers, rows
+
+
+def build_student_report_card_pdf(student):
+    """Tek bir öğrenci için 'karne' niteliğinde birleşik PDF rapor (ilerleme + devam + tahmin + son dersler)."""
+    from django.utils import timezone
+    from memorization.services import get_progress_summary
+    from lessons.services import get_attendance_summary
+    from lessons.models import LessonRecord
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5 * cm, bottomMargin=1.5 * cm)
+    styles = getSampleStyleSheet()
+    elements = [
+        Paragraph(f"Öğrenci Karnesi — {student.full_name}", styles["Title"]),
+        Paragraph(
+            f"Hafızlığa başlama: {student.start_date.strftime('%d.%m.%Y')} · "
+            f"Öğretici: {student.teacher.get_full_name() or student.teacher.username} · "
+            f"Rapor tarihi: {timezone.localdate().strftime('%d.%m.%Y')}",
+            styles["Normal"],
+        ),
+        Spacer(1, 0.6 * cm),
+    ]
+
+    progress = get_progress_summary(student)
+    attendance = get_attendance_summary(student)
+    prediction = student.predictions.first()
+
+    summary_headers = ["Ölçüt", "Değer"]
+    summary_rows = [
+        ["İlerleme Yüzdesi", f"%{progress['progress_percent']}"],
+        ["Tamamlanan Sayfa", f"{progress['completed']} / {progress['total_pages']}"],
+        ["Tekrar Bekleyen Sayfa", str(progress["needs_revision"])],
+        ["Devam Yüzdesi", f"%{attendance['attendance_percent']}"],
+        ["Toplam Devamsızlık", str(attendance["absent"])],
+        ["Bu Ay Devamsızlık", str(attendance["monthly_absent"])],
+        ["Ardışık Devamsızlık", str(attendance["consecutive_absent"])],
+    ]
+    if prediction and prediction.estimated_completion_date:
+        summary_rows += [
+            ["Tahmini Bitiş Tarihi", prediction.estimated_completion_date.strftime("%d.%m.%Y")],
+            ["Tahmini Kalan Gün", str(prediction.estimated_remaining_days)],
+            ["Tahmin Güven Seviyesi", prediction.get_confidence_level_display()],
+        ]
+
+    summary_table = Table([summary_headers] + summary_rows, colWidths=[8 * cm, 8 * cm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 0.8 * cm))
+
+    elements.append(Paragraph("Son Ders Kayıtları", styles["Heading3"]))
+    lessons = LessonRecord.objects.filter(student=student).order_by("-date")[:20]
+    lesson_headers, lesson_rows = lesson_rows_and_headers(lessons)
+    lesson_table = Table([lesson_headers] + (lesson_rows or [["Kayıt yok"] + [""] * (len(lesson_headers) - 1)]), repeatRows=1)
+    lesson_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(lesson_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
