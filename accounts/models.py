@@ -13,7 +13,7 @@ class User(AbstractUser):
         ADMIN = "admin", "Yönetici"
         TEACHER = "teacher", "Hafız Yetiştiricisi"
 
-    role = models.CharField(max_length=10, choices=Role.choices, default=Role.TEACHER)
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.TEACHER, verbose_name="Rol")
     phone = models.CharField(max_length=20, blank=True, verbose_name="Telefon")
 
     class Meta:

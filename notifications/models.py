@@ -11,12 +11,12 @@ class Notification(models.Model):
         PERFORMANCE_DROP = "performance_drop", "Performans Düşüşü"
         TARGET_DEVIATION = "target_deviation", "Hedef Sapması"
 
-    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="notifications")
-    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
-    type = models.CharField(max_length=20, choices=Type.choices)
-    message = models.CharField(max_length=255)
-    is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="notifications", verbose_name="Öğrenci")
+    teacher = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications", verbose_name="Öğretici")
+    type = models.CharField(max_length=20, choices=Type.choices, verbose_name="Uyarı Türü")
+    message = models.CharField(max_length=255, verbose_name="Mesaj")
+    is_read = models.BooleanField(default=False, verbose_name="Okundu mu")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Oluşturulma Tarihi")
 
     class Meta:
         verbose_name = "Bildirim"

@@ -23,7 +23,7 @@ class LessonRecord(models.Model):
         Quality.WEAK: 35,
     }
 
-    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="lesson_records")
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="lesson_records", verbose_name="Öğrenci")
     date = models.DateField(verbose_name="Ders Tarihi")
     attendance = models.CharField(max_length=10, choices=Attendance.choices, default=Attendance.PRESENT, verbose_name="Devam Durumu")
 
@@ -33,9 +33,9 @@ class LessonRecord(models.Model):
     quality = models.CharField(max_length=10, choices=Quality.choices, null=True, blank=True, verbose_name="Ders Kalitesi")
     notes = models.TextField(blank=True, verbose_name="Günlük Notlar")
 
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="lesson_records_created")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="lesson_records_created", verbose_name="Kaydı Giren")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Oluşturulma Tarihi")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Güncellenme Tarihi")
 
     class Meta:
         verbose_name = "Günlük Ders Kaydı"
@@ -70,13 +70,13 @@ class PerformanceHistory(models.Model):
     sinyal (signals.py) aracılığıyla otomatik güncellenir.
     """
 
-    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="performance_history")
-    date = models.DateField()
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="performance_history", verbose_name="Öğrenci")
+    date = models.DateField(verbose_name="Tarih")
     daily_memorization = models.PositiveSmallIntegerField(default=0, verbose_name="Günlük Toplam Ezber")
     daily_revision = models.PositiveSmallIntegerField(default=0, verbose_name="Günlük Toplam Tekrar")
-    quality_score = models.PositiveSmallIntegerField(null=True, blank=True)
-    attended = models.BooleanField(default=True)
-    cumulative_memorized_pages = models.PositiveSmallIntegerField(default=0)
+    quality_score = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="Kalite Puanı")
+    attended = models.BooleanField(default=True, verbose_name="Derse Geldi mi")
+    cumulative_memorized_pages = models.PositiveSmallIntegerField(default=0, verbose_name="Kümülatif Ezberlenen Sayfa")
 
     class Meta:
         verbose_name = "Performans Geçmişi"

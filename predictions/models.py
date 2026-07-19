@@ -13,14 +13,14 @@ class PredictionHistory(models.Model):
         MEDIUM = "medium", "Orta"
         HIGH = "high", "Yüksek"
 
-    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="predictions")
-    calculated_date = models.DateField(auto_now_add=True)
-    estimated_completion_date = models.DateField(null=True, blank=True)
-    estimated_remaining_days = models.PositiveIntegerField(null=True, blank=True)
-    confidence_level = models.CharField(max_length=10, choices=Confidence.choices, default=Confidence.LOW)
-    method_used = models.CharField(max_length=20, choices=Method.choices, default=Method.SIMPLE_AVERAGE)
-    remaining_pages = models.PositiveSmallIntegerField(default=0)
-    daily_pace = models.FloatField(default=0)
+    student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="predictions", verbose_name="Öğrenci")
+    calculated_date = models.DateField(auto_now_add=True, verbose_name="Hesaplama Tarihi")
+    estimated_completion_date = models.DateField(null=True, blank=True, verbose_name="Tahmini Bitiş Tarihi")
+    estimated_remaining_days = models.PositiveIntegerField(null=True, blank=True, verbose_name="Tahmini Kalan Gün")
+    confidence_level = models.CharField(max_length=10, choices=Confidence.choices, default=Confidence.LOW, verbose_name="Güven Seviyesi")
+    method_used = models.CharField(max_length=20, choices=Method.choices, default=Method.SIMPLE_AVERAGE, verbose_name="Hesaplama Yöntemi")
+    remaining_pages = models.PositiveSmallIntegerField(default=0, verbose_name="Kalan Sayfa")
+    daily_pace = models.FloatField(default=0, verbose_name="Günlük Ortalama İlerleme (Sayfa)")
 
     class Meta:
         verbose_name = "Tahmin Geçmişi"

@@ -14,14 +14,14 @@ class MemorizationPage(models.Model):
         COMPLETED = "green", "Başarıyla Tamamlandı"
 
     student = models.ForeignKey(
-        "students.Student", on_delete=models.CASCADE, related_name="pages"
+        "students.Student", on_delete=models.CASCADE, related_name="pages", verbose_name="Öğrenci"
     )
     page_number = models.PositiveSmallIntegerField(verbose_name="Sayfa No")
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.NOT_STUDIED)
-    first_memorized_date = models.DateField(null=True, blank=True)
-    last_revised_date = models.DateField(null=True, blank=True)
-    revision_count = models.PositiveIntegerField(default=0)
-    updated_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.NOT_STUDIED, verbose_name="Durum")
+    first_memorized_date = models.DateField(null=True, blank=True, verbose_name="İlk Ezberlenme Tarihi")
+    last_revised_date = models.DateField(null=True, blank=True, verbose_name="Son Tekrar Tarihi")
+    revision_count = models.PositiveIntegerField(default=0, verbose_name="Tekrar Sayısı")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Güncellenme Tarihi")
 
     class Meta:
         verbose_name = "Hafızlık Sayfası"
@@ -37,7 +37,7 @@ class RevisionRecord(models.Model):
     """Bir günlük ders kaydına bağlı tekrar (has) sayfa aralığı."""
 
     lesson = models.ForeignKey(
-        "lessons.LessonRecord", on_delete=models.CASCADE, related_name="revision_ranges"
+        "lessons.LessonRecord", on_delete=models.CASCADE, related_name="revision_ranges", verbose_name="Ders Kaydı"
     )
     start_page = models.PositiveSmallIntegerField(verbose_name="Tekrar Başlangıç Sayfası")
     end_page = models.PositiveSmallIntegerField(verbose_name="Tekrar Bitiş Sayfası")

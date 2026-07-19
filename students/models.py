@@ -28,8 +28,8 @@ class Student(models.Model):
         null=True, blank=True, verbose_name="Hedef Bitiş Tarihi",
         help_text="Öğretici tarafından belirlenen hedef tarih (Hedef Sapması uyarısı için kullanılır)."
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Oluşturulma Tarihi")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Güncellenme Tarihi")
 
     class Meta:
         verbose_name = "Öğrenci"
