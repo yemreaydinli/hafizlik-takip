@@ -56,7 +56,6 @@
       <p class="pt-4 pb-1 px-3 text-xs uppercase tracking-wide text-emerald-300">Yönetim</p>
       <a href="{% url 'accounts:teacher_list' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'accounts' %}bg-brand-700{% endif %}">👥 Öğreticiler</a>
       <a href="/admin/" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700">⚙️ Django Admin</a>
-      <a href="{% url 'core:system_reset' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-red-300 hover:bg-red-900/40 hover:text-red-100 text-xs mt-1">⚠️ Sistemi Sıfırla (Teslim İçin)</a>
       {% endif %}
     </nav>
     <div class="px-4 py-4 border-t border-emerald-700/50 text-xs">
