@@ -171,7 +171,7 @@
         {% else %}
           {% if item.attendance == 'present' %}
             <p class="text-slate-700">Ders işlendi
-              {% if item.ham_juz_label %} — Ham: <strong>{{ item.ham_juz_label }}</strong>{% endif %}
+              {% if item.ham_juz_label %} — Ham: <strong>{{ item.ham_juz_label }}</strong>{% if item.pismis_done %} <span class="text-emerald-600">(Pişmiş ✓)</span>{% endif %}{% endif %}
               {% if item.revision_juz_labels %} — Tekrar: <strong>{{ item.revision_juz_labels|join:", " }}</strong>{% endif %}
               {% if item.quality %}, Kalite: {{ item.quality }}{% endif %}</p>
           {% elif item.attendance == 'absent' %}

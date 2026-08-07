@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 from django.views import View
 
 from lessons.models import LessonRecord
@@ -60,7 +61,11 @@ class GenerateReportView(LoginRequiredMixin, View):
         start_str = request.GET.get("start")
         end_str = request.GET.get("end")
 
-        today = date.today()
+        # timezone.localdate() kullanılır: projenin TIME_ZONE=Europe/Istanbul ayarına göre
+        # "bugün"ü verir. date.today() sunucunun sistem saatine (ör. UTC) bağlı kalır ve
+        # gece yarısına yakın saatlerde diğer modüllerle (lessons, predictions, notifications)
+        # tutarsız bir "bugün" hesaplanmasına yol açabiliyordu.
+        today = timezone.localdate()
         start = date.fromisoformat(start_str) if start_str else today
         end = date.fromisoformat(end_str) if end_str else today
 

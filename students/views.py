@@ -75,6 +75,7 @@ class StudentDetailView(StudentScopedMixin, DetailView):
                 "attendance": lesson.attendance,
                 "ham": lesson.ham_page_count,
                 "ham_juz_label": lesson.ham_juz_label,
+                "pismis_done": lesson.pismis_done,
                 "revision": lesson.revision_page_count,
                 "revision_juz_labels": lesson.revision_juz_labels,
                 "quality": lesson.get_quality_display() if lesson.quality else None,

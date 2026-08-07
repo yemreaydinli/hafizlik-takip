@@ -88,6 +88,9 @@ def bulk_apply_range(student, start_page, end_page, status):
     for page_no in range(start_page, end_page + 1):
         page, _ = MemorizationPage.objects.get_or_create(student=student, page_number=page_no)
         page.status = status
+        # Elle (ders kaydı olmadan) yapılan bu atama, ders senkronizasyonu tarafından
+        # geri alınmamalı/sıfırlanmamalıdır -- bkz. lessons/signals.py:recompute_student_memorization
+        page.synced_from_lessons = False
         if status == MemorizationPage.Status.COMPLETED:
             page.last_revised_date = page.last_revised_date or today
             page.first_memorized_date = page.first_memorized_date or today

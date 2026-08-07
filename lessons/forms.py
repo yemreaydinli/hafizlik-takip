@@ -36,7 +36,7 @@ class LessonRecordForm(forms.ModelForm):
 
     class Meta:
         model = LessonRecord
-        fields = ["date", "attendance", "ham_juz", "ham_start_page", "ham_end_page", "quality", "notes"]
+        fields = ["date", "attendance", "ham_juz", "ham_start_page", "ham_end_page", "pismis_done", "quality", "notes"]
         widgets = {
             "date": ISODateInput(attrs={"class": TAILWIND_INPUT}),
             "attendance": forms.Select(attrs={"class": TAILWIND_INPUT, "id": "id_attendance"}),
@@ -46,12 +46,14 @@ class LessonRecordForm(forms.ModelForm):
             "ham_end_page": forms.NumberInput(attrs={
                 "class": TAILWIND_INPUT, "min": 1, "max": 20, "id": "id_ham_end_local",
             }),
+            "pismis_done": forms.CheckboxInput(attrs={"class": "rounded border-slate-300"}),
             "quality": forms.Select(attrs={"class": TAILWIND_INPUT}),
             "notes": forms.Textarea(attrs={"class": TAILWIND_INPUT, "rows": 3}),
         }
         labels = {
-            "ham_start_page": "Cüz İçi Başlangıç Sayfası",
-            "ham_end_page": "Cüz İçi Bitiş Sayfası",
+            "ham_start_page": "Başlangıç Sayfası (1-20)",
+            "ham_end_page": "Bitiş Sayfası (1-20)",
+            "pismis_done": "Pişmiş (Ham Arkası Eski Sayfalar) Okundu mu",
         }
 
     def __init__(self, *args, **kwargs):
@@ -105,8 +107,10 @@ class LessonRecordForm(forms.ModelForm):
 class RevisionRecordForm(forms.ModelForm):
     """
     Tekrar (has) girişi artık sayfa aralığı değil, tekrar edilen cüzün seçilmesiyle yapılır.
-    Her satır bir cüzü temsil eder; kaydedildiğinde ilgili cüzün 'tur' sayacı
-    (JuzTurCount) otomatik olarak yeniden hesaplanır (bkz. lessons/signals.py).
+    Her satır bir cüzü temsil eder; kaydedildiğinde ilgili cüzün 'has tekrar' sayacı
+    (JuzTurCount) otomatik olarak yeniden hesaplanır (bkz. lessons/signals.py). Bu sayaç,
+    ham derste ilerlenen "tur" kavramından farklıdır: has tekrar, tamamlanmış bir cüzün
+    baştan sona tekrar dinletilme sayısını ifade eder.
     """
 
     juz_number = forms.ChoiceField(

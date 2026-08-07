@@ -127,3 +127,37 @@ ALERT_PAUSE_DAYS = 5                 # Duraklama uyarısı için gün eşiği
 ALERT_CONSECUTIVE_ABSENCE = 3        # Ardışık devamsızlık uyarı eşiği
 ALERT_PERFORMANCE_DROP_RATIO = 0.35  # %35 ve üzeri düşüş uyarı verir
 ALERT_TARGET_DEVIATION_DAYS = 30     # Hedeften sapma eşiği (gün)
+
+# ---------------------------------------------------------------------------
+# Logging: DEBUG=False (üretim/Render) iken Django varsayılan olarak 500
+# hatalarının traceback'ini konsola YAZMAZ (sadece ADMINS'e e-posta göndermeye
+# çalışır). Bu da Render "Logs" sekmesinde sadece "500" diyen erişim satırları
+# görüp gerçek hatayı göremeye neden olur. Aşağıdaki yapılandırma, DEBUG
+# durumundan bağımsız olarak tüm hata traceback'lerini stdout'a (Render'ın
+# yakaladığı konsola) basar.
+# ---------------------------------------------------------------------------
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

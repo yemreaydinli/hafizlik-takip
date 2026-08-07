@@ -43,6 +43,12 @@
       {% if form.ham_juz.errors %}<p class="text-xs text-red-500 mt-1">{{ form.ham_juz.errors|join:", " }}</p>{% endif %}
       {% if form.ham_start_page.errors %}<p class="text-xs text-red-500 mt-1">{{ form.ham_start_page.errors|join:", " }}</p>{% endif %}
       {% if form.ham_end_page.errors %}<p class="text-xs text-red-500 mt-1">{{ form.ham_end_page.errors|join:", " }}</p>{% endif %}
+
+      <div class="mt-3 flex items-center gap-2">
+        {{ form.pismis_done }}
+        <label for="{{ form.pismis_done.id_for_label }}" class="text-sm text-slate-600">{{ form.pismis_done.label }}</label>
+      </div>
+      <p class="text-xs text-slate-400 mt-1">Ham'ın hemen arkasından, bu cüzde daha önce ezberlenmiş eski sayfalar da dinletildiyse işaretleyin.</p>
     </div>
 
     <div class="mb-4">
@@ -52,7 +58,7 @@
 
     <div class="mb-4 border-t border-slate-100 pt-4">
       <p class="text-sm font-semibold text-slate-700 mb-2">Has (Tekrar) — Tekrar Edilen Cüzler</p>
-      <p class="text-xs text-slate-400 mb-3">Bugün tekrar edilen cüzleri seçin. Her seçilen cüzün "tur" sayacı otomatik olarak bir artar.</p>
+      <p class="text-xs text-slate-400 mb-3">Bugün tekrar edilen cüzleri seçin. Her seçilen cüzün "has tekrar" sayacı otomatik olarak bir artar.</p>
       {{ formset.management_form }}
       <div id="revision-rows" class="space-y-2">
         {% for rform in formset %}

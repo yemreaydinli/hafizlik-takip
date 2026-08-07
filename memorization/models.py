@@ -21,6 +21,16 @@ class MemorizationPage(models.Model):
     first_memorized_date = models.DateField(null=True, blank=True, verbose_name="İlk Ezberlenme Tarihi")
     last_revised_date = models.DateField(null=True, blank=True, verbose_name="Son Tekrar Tarihi")
     revision_count = models.PositiveIntegerField(default=0, verbose_name="Tekrar Sayısı")
+    synced_from_lessons = models.BooleanField(
+        default=False,
+        verbose_name="Ders Kaydından Senkronize",
+        help_text=(
+            "True ise bu sayfanın durumu günlük ders kayıtlarından (ham/has) otomatik "
+            "hesaplanmıştır ve ders kaydı silinip/düzenlendiğinde yeniden hesaplanabilir. "
+            "False ise 'Başlangıç Durumu Aktarımı' (bulk_apply_range) ile elle işaretlenmiştir "
+            "ve ders senkronizasyonu bu sayfaları geri almaz/sıfırlamaz."
+        ),
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Güncellenme Tarihi")
 
     class Meta:
@@ -73,23 +83,25 @@ class RevisionRecord(models.Model):
 
 class JuzTurCount(models.Model):
     """
-    Bir öğrencinin her cüzü kaçıncı kez tekrar (has) ettiğini ('tur') tutan sayaç.
-    Ders kaydı kaydedildiğinde sinyal (lessons/signals.py) aracılığıyla otomatik
-    yeniden hesaplanır; elle düzenlenmesi gerekmez.
+    Bir öğrencinin her cüzü kaçıncı kez has olarak tekrar ettiğini tutan sayaç
+    ("has tekrar sayacı"). Bu, ham derste ilerlenen "tur" kavramından farklıdır --
+    has tekrar, tamamlanmış bir cüzün baştan sona tekrar dinletilme sayısıdır.
+    Ders kaydı kaydedildiğinde lessons/signals.py:sync_lesson() aracılığıyla
+    sıfırdan yeniden hesaplanır; elle düzenlenmesi gerekmez.
     """
 
     student = models.ForeignKey(
         "students.Student", on_delete=models.CASCADE, related_name="juz_tur_counts", verbose_name="Öğrenci"
     )
     juz_number = models.PositiveSmallIntegerField(verbose_name="Cüz No")
-    tur_count = models.PositiveIntegerField(default=0, verbose_name="Tur Sayısı")
-    last_tur_date = models.DateField(null=True, blank=True, verbose_name="Son Tur Tarihi")
+    tur_count = models.PositiveIntegerField(default=0, verbose_name="Has Tekrar Sayısı")
+    last_tur_date = models.DateField(null=True, blank=True, verbose_name="Son Has Tekrar Tarihi")
 
     class Meta:
-        verbose_name = "Cüz Tur Sayacı"
-        verbose_name_plural = "Cüz Tur Sayaçları"
+        verbose_name = "Cüz Has Tekrar Sayacı"
+        verbose_name_plural = "Cüz Has Tekrar Sayaçları"
         unique_together = ("student", "juz_number")
         ordering = ["juz_number"]
 
     def __str__(self):
-        return f"{self.student} - {self.juz_number}. Cüz ({self.tur_count}. tur)"
+        return f"{self.student} - {self.juz_number}. Cüz ({self.tur_count}. has tekrar)"
