@@ -113,3 +113,60 @@ def calculate_prediction(student, persist=True):
     if persist:
         prediction.save()
     return prediction
+
+
+def calculate_target_progress(student):
+    """
+    Hedef bitiş tarihine göre "olması gereken" sayfa sayısı ile gerçek ezberlenen
+    sayfa sayısını karşılaştırır.
+
+    calculate_prediction()'dan farkı: o fonksiyon geçmiş temponun ORTALAMASINI alıp
+    ileriye dönük bir tahmin üretir (gün bazlı sapma verir). Bu fonksiyon ise haftalık
+    ders temposu dalgalı olsa bile (bazı hafta 2 sayfa, bazı hafta 5 sayfa gibi) doğru
+    çalışır; çünkü "olması gereken"i haftalık ortalamaya değil, başlangıçtan bugüne
+    GEÇEN SÜRENİN ORANINA göre hesaplar. Böylece dalgalanmalara karşı dayanıklı,
+    sayfa/yüzde bazlı bir "yolunda mı gidiyor" göstergesi elde edilir.
+
+    Dönüş: dict ya da None (hedef tarih ya da başlangıç tarihi tanımlı değilse).
+    """
+    if not student.target_completion_date or not student.start_date:
+        return None
+
+    total_days = (student.target_completion_date - student.start_date).days
+    if total_days <= 0:
+        return None
+
+    total_pages = settings.TOTAL_QURAN_PAGES
+    today = timezone.localdate()
+
+    elapsed_days = max(0, min((today - student.start_date).days, total_days))
+    expected_pages_by_now = round(total_pages * elapsed_days / total_days)
+
+    actual_pages = MemorizationPage.objects.filter(student=student).exclude(
+        status=MemorizationPage.Status.NOT_STUDIED
+    ).count()
+
+    pages_ahead_behind = actual_pages - expected_pages_by_now
+    if expected_pages_by_now > 0:
+        target_progress_percent = round((actual_pages / expected_pages_by_now) * 100, 1)
+    else:
+        # Henüz hedef sürecin başındayız (elapsed_days == 0); beklenen 0 sayfa,
+        # yapılan her sayfa hedefin önünde sayılır.
+        target_progress_percent = 100.0 if actual_pages == 0 else 200.0
+
+    remaining_pages = max(total_pages - actual_pages, 0)
+    remaining_days = (student.target_completion_date - today).days
+    remaining_weeks = remaining_days / 7 if remaining_days > 0 else 0
+    required_weekly_pace = round(remaining_pages / remaining_weeks, 1) if remaining_weeks > 0 else None
+
+    return {
+        "expected_pages_by_now": expected_pages_by_now,
+        "actual_pages": actual_pages,
+        "pages_ahead_behind": pages_ahead_behind,
+        "pages_ahead_behind_abs": abs(pages_ahead_behind),
+        "target_progress_percent": target_progress_percent,
+        "remaining_pages": remaining_pages,
+        "remaining_days": max(remaining_days, 0),
+        "required_weekly_pace": required_weekly_pace,
+        "target_date_passed": remaining_days <= 0 and remaining_pages > 0,
+    }

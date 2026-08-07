@@ -12,7 +12,7 @@ from lessons.models import LessonRecord
 from lessons.services import get_attendance_summary, get_recent_performance_series
 from memorization.services import get_progress_summary, get_page_map, get_stale_pages
 from notifications.models import Notification
-from predictions.services import calculate_prediction
+from predictions.services import calculate_prediction, calculate_target_progress
 from .forms import StudentForm
 from .models import Student
 
@@ -95,6 +95,7 @@ class StudentDetailView(StudentScopedMixin, DetailView):
             target_deviation_abs = abs(target_deviation_days)
 
         performance_series = get_recent_performance_series(student, days=30)
+        target_progress = calculate_target_progress(student)
 
         ctx.update({
             "lessons": recent_lessons,
@@ -104,6 +105,7 @@ class StudentDetailView(StudentScopedMixin, DetailView):
             "prediction": prediction,
             "target_deviation_days": target_deviation_days,
             "target_deviation_abs": target_deviation_abs,
+            "target_progress": target_progress,
             "mini_page_map": get_page_map(student),
             "stale_pages": get_stale_pages(student),
             "performance_series_json": json.dumps(performance_series, cls=DjangoJSONEncoder),
