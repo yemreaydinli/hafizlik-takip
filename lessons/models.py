@@ -30,6 +30,15 @@ class LessonRecord(models.Model):
     ham_start_page = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="Ham Ders Başlangıç Sayfası")
     ham_end_page = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="Ham Ders Bitiş Sayfası")
 
+    pismis_done = models.BooleanField(
+        default=False,
+        verbose_name="Pişmiş (Ham Arkası) Okundu",
+        help_text=(
+            "Yeni ham sayfasının hemen arkasından, aynı cüzde daha önce ezberlenmiş "
+            "('pişmiş') sayfaların da hocaya dinletildiğini onaylar."
+        ),
+    )
+
     quality = models.CharField(max_length=10, choices=Quality.choices, null=True, blank=True, verbose_name="Ders Kalitesi")
     notes = models.TextField(blank=True, verbose_name="Günlük Notlar")
 

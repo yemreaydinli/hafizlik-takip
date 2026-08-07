@@ -1,6 +1,7 @@
 import json
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -41,6 +42,7 @@ class LessonListView(LoginRequiredMixin, ListView):
         return qs
 
 
+@login_required
 def lesson_create(request, student_pk):
     student = get_object_or_404(_scoped_students(request.user), pk=student_pk)
 
@@ -76,6 +78,7 @@ def lesson_create(request, student_pk):
     })
 
 
+@login_required
 def daily_entry(request):
     """'Bugünkü Ders Gir' hızlı giriş ekranı: öğrenci seçilir, seçilince o öğrencinin
     bugünkü ders formuna (tarih otomatik dolu) yönlendirilir."""
@@ -90,6 +93,7 @@ def daily_entry(request):
     return render(request, "lessons/daily_entry.html", {"students": students, "today": timezone.localdate()})
 
 
+@login_required
 def lesson_update(request, pk):
     lesson = get_object_or_404(
         LessonRecord.objects.select_related("student"), pk=pk, student__in=_scoped_students(request.user)
@@ -113,6 +117,7 @@ def lesson_update(request, pk):
     })
 
 
+@login_required
 def lesson_delete(request, pk):
     lesson = get_object_or_404(LessonRecord, pk=pk, student__in=_scoped_students(request.user))
     student_pk = lesson.student.pk

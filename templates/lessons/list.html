@@ -13,7 +13,7 @@
         <td class="px-4 py-3 font-medium"><a href="{% url 'students:detail' lesson.student.pk %}" class="hover:text-brand-700">{{ lesson.student.full_name }}</a></td>
         <td class="px-4 py-3">{{ lesson.date|date:"d.m.Y" }}</td>
         <td class="px-4 py-3">{{ lesson.get_attendance_display }}</td>
-        <td class="px-4 py-3">{{ lesson.ham_juz_label|default:"-" }}</td>
+        <td class="px-4 py-3">{{ lesson.ham_juz_label|default:"-" }}{% if lesson.pismis_done %} <span class="text-xs text-emerald-600" title="Pişmiş okundu">(Pişmiş ✓)</span>{% endif %}</td>
         <td class="px-4 py-3">{{ lesson.revision_juz_labels|join:", "|default:"-" }}</td>
         <td class="px-4 py-3">{{ lesson.get_quality_display|default:"-" }}</td>
         <td class="px-4 py-3 text-right space-x-2">

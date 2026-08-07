@@ -101,15 +101,34 @@ def calculate_prediction(student, persist=True):
 
     confidence = _confidence_level(len(history), memorization_values)
 
-    prediction = PredictionHistory(
-        student=student,
-        estimated_completion_date=estimated_completion_date,
-        estimated_remaining_days=estimated_remaining_days,
-        confidence_level=confidence,
-        method_used=method,
-        remaining_pages=remaining_pages,
-        daily_pace=round(effective_daily_pace, 2),
-    )
     if persist:
-        prediction.save()
+        # Aynı gün içinde (örn. öğrenci sayfası birden çok kez açıldığında) her seferinde
+        # yeni bir PredictionHistory satırı oluşturmak yerine, o güne ait kaydı güncelle.
+        # Böylece "history" tablosu günlük bazda anlamlı kalır ve
+        # PredictionHistory.Meta.ordering = ["-calculated_date"] (gün hassasiyetli)
+        # ile student.predictions.first() her zaman deterministik biçimde en güncel
+        # (bugünkü) tahmini döner -- aynı güne ait birden fazla satır arasında
+        # belirsiz bir sıralamaya düşmez.
+        prediction, _ = PredictionHistory.objects.update_or_create(
+            student=student,
+            calculated_date=today,
+            defaults={
+                "estimated_completion_date": estimated_completion_date,
+                "estimated_remaining_days": estimated_remaining_days,
+                "confidence_level": confidence,
+                "method_used": method,
+                "remaining_pages": remaining_pages,
+                "daily_pace": round(effective_daily_pace, 2),
+            },
+        )
+    else:
+        prediction = PredictionHistory(
+            student=student,
+            estimated_completion_date=estimated_completion_date,
+            estimated_remaining_days=estimated_remaining_days,
+            confidence_level=confidence,
+            method_used=method,
+            remaining_pages=remaining_pages,
+            daily_pace=round(effective_daily_pace, 2),
+        )
     return prediction
