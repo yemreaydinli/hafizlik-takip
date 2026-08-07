@@ -37,6 +37,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             status=MemorizationPage.Status.COMPLETED,
             last_revised_date__gte=month_start,
         ).count()
+        month_completed_juz = round(month_completed_pages / 20, 1)
 
         upcoming = []
         for s in active_students:
@@ -59,6 +60,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             "today_ham_pages": sum(l.ham_page_count for l in today_lessons),
             "today_revision_pages": sum(l.revision_page_count for l in today_lessons),
             "month_completed_pages": month_completed_pages,
+            "month_completed_juz": month_completed_juz,
             "upcoming_completions": upcoming,
             "alerts": alerts,
         })

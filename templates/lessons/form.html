@@ -22,15 +22,27 @@
       </div>
     </div>
 
-    <div id="ham-fields" class="grid md:grid-cols-2 gap-4 mb-4">
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_start_page.label }}</label>
-        {{ form.ham_start_page }}
+    <div id="ham-fields" class="mb-4">
+      <p class="text-sm font-semibold text-slate-700 mb-2">Ham (Yeni Ezber)</p>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_juz.label }}</label>
+          {{ form.ham_juz }}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_start_page.label }}</label>
+          {{ form.ham_start_page }}
+          <p class="text-xs text-slate-400 mt-1" id="ham-start-hint">Cüz seçin</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_end_page.label }}</label>
+          {{ form.ham_end_page }}
+          <p class="text-xs text-slate-400 mt-1" id="ham-end-hint">Cüz seçin</p>
+        </div>
       </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_end_page.label }}</label>
-        {{ form.ham_end_page }}
-      </div>
+      {% if form.ham_juz.errors %}<p class="text-xs text-red-500 mt-1">{{ form.ham_juz.errors|join:", " }}</p>{% endif %}
+      {% if form.ham_start_page.errors %}<p class="text-xs text-red-500 mt-1">{{ form.ham_start_page.errors|join:", " }}</p>{% endif %}
+      {% if form.ham_end_page.errors %}<p class="text-xs text-red-500 mt-1">{{ form.ham_end_page.errors|join:", " }}</p>{% endif %}
     </div>
 
     <div class="mb-4">
@@ -39,21 +51,24 @@
     </div>
 
     <div class="mb-4 border-t border-slate-100 pt-4">
-      <p class="text-sm font-semibold text-slate-700 mb-2">Has (Tekrar) Sayfa Aralıkları</p>
+      <p class="text-sm font-semibold text-slate-700 mb-2">Has (Tekrar) — Tekrar Edilen Cüzler</p>
+      <p class="text-xs text-slate-400 mb-3">Bugün tekrar edilen cüzleri seçin. Her seçilen cüzün "tur" sayacı otomatik olarak bir artar.</p>
       {{ formset.management_form }}
       <div id="revision-rows" class="space-y-2">
         {% for rform in formset %}
         <div class="flex items-center gap-2 revision-row">
           {{ rform.id }}
-          <div class="grid grid-cols-2 gap-2 flex-1">
+          <div class="flex-1">
+            {{ rform.juz_number }}
             {{ rform.start_page }}
             {{ rform.end_page }}
+            {% if rform.juz_number.errors %}<p class="text-xs text-red-500 mt-1">{{ rform.juz_number.errors|join:", " }}</p>{% endif %}
           </div>
           {% if rform.DELETE %}<label class="text-xs text-red-500 flex items-center gap-1">{{ rform.DELETE }} Sil</label>{% endif %}
         </div>
         {% endfor %}
       </div>
-      <button type="button" onclick="addRevisionRow()" class="mt-2 text-sm text-brand-700 hover:underline">+ Tekrar aralığı ekle</button>
+      <button type="button" onclick="addRevisionRow()" class="mt-2 text-sm text-brand-700 hover:underline">+ Tekrar edilen cüz ekle</button>
     </div>
 
     <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 py-2.5 rounded-lg">Kaydet</button>
@@ -62,6 +77,10 @@
 </div>
 
 <script>
+  // Her cüzün kaç sayfadan oluştuğu (30. cüz genelde daha kısadır) — sunucudaki
+  // core.quran.juz_page_count ile birebir aynı mantık, sadece istemci tarafı ipucu içindir.
+  const JUZ_PAGE_COUNTS = {{ juz_page_counts_json|safe }};
+
   // Devam durumu "Gelmedi" ise ham/tekrar alanlarını gizle
   const attendanceSelect = document.getElementById('id_attendance');
   const hamFields = document.getElementById('ham-fields');
@@ -77,6 +96,25 @@
     toggleHamFields();
   }
 
+  // Seçilen cüze göre "cüz içi sayfa" alanlarının üst sınırını ve ipucunu güncelle.
+  const hamJuzSelect = document.getElementById('id_ham_juz');
+  const hamStartInput = document.getElementById('id_ham_start_local');
+  const hamEndInput = document.getElementById('id_ham_end_local');
+  const hamStartHint = document.getElementById('ham-start-hint');
+  const hamEndHint = document.getElementById('ham-end-hint');
+  function updateHamPageBounds() {
+    const juz = hamJuzSelect ? hamJuzSelect.value : '';
+    const maxPage = juz && JUZ_PAGE_COUNTS[juz] ? JUZ_PAGE_COUNTS[juz] : 20;
+    const hint = juz ? `1-${maxPage}. sayfa arası` : 'Önce cüz seçin';
+    [hamStartInput, hamEndInput].forEach(el => { if (el) { el.max = maxPage; el.min = 1; } });
+    if (hamStartHint) hamStartHint.textContent = hint;
+    if (hamEndHint) hamEndHint.textContent = hint;
+  }
+  if (hamJuzSelect) {
+    hamJuzSelect.addEventListener('change', updateHamPageBounds);
+    updateHamPageBounds();
+  }
+
   // Yeni tekrar (has) satırı ekleme (Django formset TOTAL_FORMS güncellemesiyle)
   function addRevisionRow() {
     const totalForms = document.getElementById('id_revision_ranges-TOTAL_FORMS');
@@ -84,10 +122,15 @@
     const container = document.getElementById('revision-rows');
     const row = document.createElement('div');
     row.className = 'flex items-center gap-2 revision-row';
+    let options = '<option value="">Cüz seçin</option>';
+    for (let i = 1; i <= 30; i++) {
+      options += `<option value="${i}">${i}. Cüz</option>`;
+    }
     row.innerHTML = `
-      <div class="grid grid-cols-2 gap-2 flex-1">
-        <input type="number" name="revision_ranges-${idx}-start_page" min="1" max="604" placeholder="Baş." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-        <input type="number" name="revision_ranges-${idx}-end_page" min="1" max="604" placeholder="Bit." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      <div class="flex-1">
+        <select name="revision_ranges-${idx}-juz_number" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">${options}</select>
+        <input type="hidden" name="revision_ranges-${idx}-start_page">
+        <input type="hidden" name="revision_ranges-${idx}-end_page">
       </div>`;
     container.appendChild(row);
     totalForms.value = idx + 1;

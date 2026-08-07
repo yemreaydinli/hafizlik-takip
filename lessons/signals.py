@@ -1,8 +1,10 @@
+from django.db.models import Count, Max
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
+from core.quran import TOTAL_JUZ, juz_page_range
 from .models import LessonRecord, PerformanceHistory
-from memorization.models import MemorizationPage, RevisionRecord
+from memorization.models import MemorizationPage, RevisionRecord, JuzTurCount
 
 
 def _sync_memorization_pages(lesson: LessonRecord):
@@ -29,6 +31,30 @@ def _sync_memorization_pages(lesson: LessonRecord):
             page.save(update_fields=["status", "last_revised_date", "revision_count", "updated_at"])
 
 
+def _sync_juz_tur_counts(student):
+    """
+    Öğrencinin 30 cüzü için 'tur' sayaçlarını (bir cüzün kaçıncı kez tekrar edildiği)
+    RevisionRecord kayıtlarından yeniden hesaplar. Sayaç, o cüz için tam aralığı
+    (start_page/end_page cüz sınırlarıyla birebir eşleşen) kapsayan farklı ders
+    tarihlerinin sayısıdır; bu sayede sinyalin birden fazla tetiklenmesi veya
+    ders kaydı düzenlemesi durumunda çift sayım oluşmaz.
+    """
+    for juz_number in range(1, TOTAL_JUZ + 1):
+        start, end = juz_page_range(juz_number)
+        agg = (
+            RevisionRecord.objects.filter(
+                lesson__student=student, start_page=start, end_page=end
+            ).aggregate(cnt=Count("lesson_id", distinct=True), last=Max("lesson__date"))
+        )
+        if agg["cnt"]:
+            JuzTurCount.objects.update_or_create(
+                student=student, juz_number=juz_number,
+                defaults={"tur_count": agg["cnt"], "last_tur_date": agg["last"]},
+            )
+        else:
+            JuzTurCount.objects.filter(student=student, juz_number=juz_number).update(tur_count=0, last_tur_date=None)
+
+
 def _sync_performance_history(lesson: LessonRecord):
     cumulative = MemorizationPage.objects.filter(
         student=lesson.student
@@ -50,6 +76,7 @@ def _sync_performance_history(lesson: LessonRecord):
 def sync_lesson(lesson: LessonRecord):
     """Ders kaydı ve bağlı tekrar formseti kaydedildikten sonra çağrılabilecek genel senkronizasyon fonksiyonu."""
     _sync_memorization_pages(lesson)
+    _sync_juz_tur_counts(lesson.student)
     _sync_performance_history(lesson)
 
 
@@ -61,3 +88,4 @@ def on_lesson_record_saved(sender, instance: LessonRecord, **kwargs):
 @receiver(post_delete, sender=LessonRecord)
 def on_lesson_record_deleted(sender, instance: LessonRecord, **kwargs):
     PerformanceHistory.objects.filter(student=instance.student, date=instance.date).delete()
+    _sync_juz_tur_counts(instance.student)

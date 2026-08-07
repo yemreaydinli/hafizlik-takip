@@ -13,8 +13,8 @@
         <td class="px-4 py-3 font-medium"><a href="{% url 'students:detail' lesson.student.pk %}" class="hover:text-brand-700">{{ lesson.student.full_name }}</a></td>
         <td class="px-4 py-3">{{ lesson.date|date:"d.m.Y" }}</td>
         <td class="px-4 py-3">{{ lesson.get_attendance_display }}</td>
-        <td class="px-4 py-3">{{ lesson.ham_page_count }} sf.</td>
-        <td class="px-4 py-3">{{ lesson.revision_page_count }} sf.</td>
+        <td class="px-4 py-3">{{ lesson.ham_juz_label|default:"-" }}</td>
+        <td class="px-4 py-3">{{ lesson.revision_juz_labels|join:", "|default:"-" }}</td>
         <td class="px-4 py-3">{{ lesson.get_quality_display|default:"-" }}</td>
         <td class="px-4 py-3 text-right space-x-2">
           <a href="{% url 'lessons:update' lesson.pk %}" class="text-brand-700 hover:underline">Düzenle</a>

@@ -32,9 +32,16 @@ class MemorizationPage(models.Model):
     def __str__(self):
         return f"{self.student} - Sayfa {self.page_number} ({self.get_status_display()})"
 
+    @property
+    def juz_number(self):
+        from core.quran import juz_of_page
+        return juz_of_page(self.page_number)
+
 
 class RevisionRecord(models.Model):
-    """Bir günlük ders kaydına bağlı tekrar (has) sayfa aralığı."""
+    """Bir günlük ders kaydına bağlı tekrar (has) sayfa aralığı.
+    Artık kullanıcı arayüzünden sayfa değil, cüz seçilerek girilir (bkz. lessons/forms.py);
+    start_page/end_page seçilen cüzün mutlak sayfa aralığına eşitlenir."""
 
     lesson = models.ForeignKey(
         "lessons.LessonRecord", on_delete=models.CASCADE, related_name="revision_ranges", verbose_name="Ders Kaydı"
@@ -50,5 +57,39 @@ class RevisionRecord(models.Model):
     def page_count(self):
         return max(self.end_page - self.start_page + 1, 0)
 
+    @property
+    def juz_number(self):
+        from core.quran import juz_of_page
+        return juz_of_page(self.start_page)
+
+    @property
+    def juz_label(self):
+        j = self.juz_number
+        return f"{j}. Cüz" if j else "-"
+
     def __str__(self):
-        return f"{self.lesson.student} - {self.start_page}-{self.end_page}"
+        return f"{self.lesson.student} - {self.juz_label}"
+
+
+class JuzTurCount(models.Model):
+    """
+    Bir öğrencinin her cüzü kaçıncı kez tekrar (has) ettiğini ('tur') tutan sayaç.
+    Ders kaydı kaydedildiğinde sinyal (lessons/signals.py) aracılığıyla otomatik
+    yeniden hesaplanır; elle düzenlenmesi gerekmez.
+    """
+
+    student = models.ForeignKey(
+        "students.Student", on_delete=models.CASCADE, related_name="juz_tur_counts", verbose_name="Öğrenci"
+    )
+    juz_number = models.PositiveSmallIntegerField(verbose_name="Cüz No")
+    tur_count = models.PositiveIntegerField(default=0, verbose_name="Tur Sayısı")
+    last_tur_date = models.DateField(null=True, blank=True, verbose_name="Son Tur Tarihi")
+
+    class Meta:
+        verbose_name = "Cüz Tur Sayacı"
+        verbose_name_plural = "Cüz Tur Sayaçları"
+        unique_together = ("student", "juz_number")
+        ordering = ["juz_number"]
+
+    def __str__(self):
+        return f"{self.student} - {self.juz_number}. Cüz ({self.tur_count}. tur)"

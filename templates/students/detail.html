@@ -94,27 +94,6 @@
       {% else %}
         <p class="text-sm text-slate-400">Tahmin için henüz yeterli veri yok.</p>
       {% endif %}
-
-      {% if target_progress %}
-        <div class="mt-4 pt-4 border-t border-slate-100">
-          <p class="text-xs text-slate-500 mb-2">Hedefe göre bugün itibarıyla olması gereken: <strong>{{ target_progress.expected_pages_by_now }} sayfa</strong> — gerçekte: <strong>{{ target_progress.actual_pages }} sayfa</strong></p>
-          <div class="w-full bg-slate-100 rounded-full h-2.5 mb-2">
-            <div class="h-2.5 rounded-full {% if target_progress.target_progress_percent >= 100 %}bg-emerald-500{% elif target_progress.target_progress_percent >= 80 %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width: {{ target_progress.target_progress_percent }}%; max-width: 100%;"></div>
-          </div>
-          {% if target_progress.pages_ahead_behind > 0 %}
-            <div class="bg-emerald-50 text-emerald-700 text-sm rounded-lg px-3 py-2">🚀 Hedeften <strong>{{ target_progress.pages_ahead_behind }} sayfa</strong> önde (%{{ target_progress.target_progress_percent }} hedef ilerlemesi).</div>
-          {% elif target_progress.pages_ahead_behind < 0 %}
-            <div class="bg-amber-50 text-amber-700 text-sm rounded-lg px-3 py-2">⏰ Hedeften <strong>{{ target_progress.pages_ahead_behind_abs }} sayfa</strong> geride (%{{ target_progress.target_progress_percent }} hedef ilerlemesi).</div>
-          {% else %}
-            <div class="bg-slate-50 text-slate-600 text-sm rounded-lg px-3 py-2">Sayfa bazında tam hedefte gidiyor.</div>
-          {% endif %}
-          {% if target_progress.target_date_passed %}
-            <p class="text-xs text-rose-600 mt-2">⚠️ Hedef tarih geçti, {{ target_progress.remaining_pages }} sayfa kaldı.</p>
-          {% elif target_progress.required_weekly_pace %}
-            <p class="text-xs text-slate-500 mt-2">Hedefte kalmak için bundan sonra haftada ortalama <strong>{{ target_progress.required_weekly_pace }} sayfa</strong> gerekiyor ({{ target_progress.remaining_pages }} sayfa / {{ target_progress.remaining_days }} gün kaldı).</p>
-          {% endif %}
-        </div>
-      {% endif %}
     {% else %}
       <p class="text-sm text-slate-400">Bu öğrenci için hedef tarih belirlenmemiş. <a href="{% url 'students:update' student.pk %}" class="text-brand-700 hover:underline">Şimdi ekle</a></p>
     {% endif %}
@@ -135,12 +114,12 @@
       <h2 class="font-semibold text-slate-800">🗺️ Hafızlık Haritası</h2>
       <a href="{% url 'memorization:map' student.pk %}" class="text-xs text-brand-700 hover:underline">Tam haritayı gör →</a>
     </div>
-    <div class="grid grid-cols-[repeat(auto-fill,minmax(10px,1fr))] gap-[2px]">
-      {% for page in mini_page_map %}
-        <div title="Sayfa {{ page.page_number }}" class="aspect-square rounded-sm
-          {% if page.status == 'green' %}bg-emerald-500
-          {% elif page.status == 'yellow' %}bg-amber-400
-          {% else %}bg-slate-200{% endif %}"></div>
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(28px,1fr))] gap-1">
+      {% for juz in mini_juz_map %}
+        <div title="{{ juz.juz_number }}. Cüz — {{ juz.tur_count }}. tur" class="aspect-square rounded flex items-center justify-center text-[9px] font-medium
+          {% if juz.status == 'green' %}bg-emerald-500 text-white
+          {% elif juz.status == 'yellow' %}bg-amber-400 text-white
+          {% else %}bg-slate-200 text-slate-400{% endif %}">{{ juz.juz_number }}</div>
       {% endfor %}
     </div>
   </div>
@@ -152,7 +131,7 @@
       <ul class="text-sm divide-y divide-slate-100">
         {% for p in stale_pages %}
         <li class="py-2 flex items-center justify-between">
-          <span>Sayfa <strong>{{ p.page_number }}</strong></span>
+          <span>{{ p.juz_number }}. Cüz — Sayfa <strong>{{ p.page_number }}</strong></span>
           <span class="text-amber-600 text-xs">{{ p.days_waiting }} gündür bekliyor</span>
         </li>
         {% endfor %}
@@ -191,7 +170,10 @@
           <p class="text-amber-700"><span class="font-medium">{{ item.type_label }}</span> — {{ item.message }}</p>
         {% else %}
           {% if item.attendance == 'present' %}
-            <p class="text-slate-700">Ders işlendi — Ham: <strong>{{ item.ham }} sf.</strong>, Tekrar: <strong>{{ item.revision }} sf.</strong>{% if item.quality %}, Kalite: {{ item.quality }}{% endif %}</p>
+            <p class="text-slate-700">Ders işlendi
+              {% if item.ham_juz_label %} — Ham: <strong>{{ item.ham_juz_label }}</strong>{% endif %}
+              {% if item.revision_juz_labels %} — Tekrar: <strong>{{ item.revision_juz_labels|join:", " }}</strong>{% endif %}
+              {% if item.quality %}, Kalite: {{ item.quality }}{% endif %}</p>
           {% elif item.attendance == 'absent' %}
             <p class="text-red-600">Derse gelmedi.</p>
           {% else %}

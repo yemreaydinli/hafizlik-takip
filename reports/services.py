@@ -1,88 +1,30 @@
 """PDF (reportlab) ve Excel (openpyxl) rapor üretim servisleri."""
 import io
-import os
 
-from django.conf import settings
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-
-# Reportlab'ın yerleşik fontları (Helvetica vb.) Türkçe karakterleri
-# (ç, ğ, ı, İ, ö, ş, ü) desteklemez. Bu yüzden Unicode destekli bir
-# TTF font kaydedip tüm PDF çıktılarında onu kullanıyoruz.
-_FONT_DIR = os.path.join(settings.BASE_DIR, "static", "fonts")
-_FONT_NAME = "DejaVuSans"
-_FONT_NAME_BOLD = "DejaVuSans-Bold"
-
-if _FONT_NAME not in pdfmetrics.getRegisteredFontNames():
-    pdfmetrics.registerFont(TTFont(_FONT_NAME, os.path.join(_FONT_DIR, "DejaVuSans.ttf")))
-    pdfmetrics.registerFont(TTFont(_FONT_NAME_BOLD, os.path.join(_FONT_DIR, "DejaVuSans-Bold.ttf")))
-    pdfmetrics.registerFontFamily(
-        _FONT_NAME, normal=_FONT_NAME, bold=_FONT_NAME_BOLD, italic=_FONT_NAME, boldItalic=_FONT_NAME_BOLD
-    )
-
-
-def _get_styles():
-    """Türkçe karakterleri destekleyen fontu kullanan stil sayfası döndürür."""
-    styles = getSampleStyleSheet()
-    for style_name in ("Title", "Normal", "Heading3", "Heading1", "Heading2"):
-        styles[style_name].fontName = _FONT_NAME
-    styles["Title"].fontName = _FONT_NAME_BOLD
-    styles["Heading3"].fontName = _FONT_NAME_BOLD
-    return styles
-
-
-_TABLE_FONT_STYLE = [
-    ("FONTNAME", (0, 0), (-1, -1), _FONT_NAME),
-    ("FONTNAME", (0, 0), (-1, 0), _FONT_NAME_BOLD),
-]
-
-# Çok sütunlu raporlarda (ör. hedef ilerleme sütunları eklenince) hücrelerin
-# sayfa dışına taşmaması için başlık/hücre metinlerini Paragraph içine alıp
-# satır kaydırmalı (word-wrap) hale getiriyoruz.
-_HEADER_CELL_STYLE = ParagraphStyle(
-    "TableHeaderCell", fontName=_FONT_NAME_BOLD, fontSize=7.5, leading=9, textColor=colors.white,
-)
-_BODY_CELL_STYLE = ParagraphStyle(
-    "TableBodyCell", fontName=_FONT_NAME, fontSize=7.5, leading=9,
-)
 
 
 def build_pdf_table(title, headers, rows, subtitle=None):
     buffer = io.BytesIO()
-    left_margin = right_margin = 1 * cm
-    doc = SimpleDocTemplate(
-        buffer, pagesize=landscape(A4), topMargin=1.5 * cm, bottomMargin=1.5 * cm,
-        leftMargin=left_margin, rightMargin=right_margin,
-    )
-    styles = _get_styles()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=1.5 * cm, bottomMargin=1.5 * cm)
+    styles = getSampleStyleSheet()
     elements = [Paragraph(title, styles["Title"])]
     if subtitle:
         elements.append(Paragraph(subtitle, styles["Normal"]))
     elements.append(Spacer(1, 0.5 * cm))
 
-    raw_rows = rows if rows else [["Kayıt bulunamadı"] + [""] * (len(headers) - 1)]
-    # Hücreleri Paragraph'a sararak satır kaydırmalı hale getiriyoruz; böylece
-    # sütun sayısı arttıkça (ör. hedef ilerleme sütunları) tablo sayfa dışına
-    # taşmak yerine hücre içinde satır kırıyor.
-    header_row = [Paragraph(str(h), _HEADER_CELL_STYLE) for h in headers]
-    body_rows = [
-        [Paragraph("-" if v in (None, "") else str(v), _BODY_CELL_STYLE) for v in row]
-        for row in raw_rows
-    ]
-    data = [header_row] + body_rows
-
-    available_width = landscape(A4)[0] - left_margin - right_margin
-    col_width = available_width / len(headers)
-    table = Table(data, colWidths=[col_width] * len(headers), repeatRows=1)
+    data = [headers] + rows if rows else [headers, ["Kayıt bulunamadı"] + [""] * (len(headers) - 1)]
+    table = Table(data, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -120,15 +62,15 @@ def build_excel_table(title, headers, rows):
 
 
 def lesson_rows_and_headers(lessons):
-    headers = ["Öğrenci", "Tarih", "Devam", "Ham Sayfa Sayısı", "Tekrar Sayfa Sayısı", "Kalite", "Not"]
+    headers = ["Öğrenci", "Tarih", "Devam", "Ham (Cüz)", "Tekrar Edilen Cüzler", "Kalite", "Not"]
     rows = []
     for lesson in lessons:
         rows.append([
             lesson.student.full_name,
             lesson.date.strftime("%d.%m.%Y"),
             lesson.get_attendance_display(),
-            lesson.ham_page_count,
-            lesson.revision_page_count,
+            lesson.ham_juz_label or "-",
+            ", ".join(lesson.revision_juz_labels) or "-",
             lesson.get_quality_display() if lesson.quality else "-",
             (lesson.notes or "")[:60],
         ])
@@ -151,29 +93,18 @@ def attendance_rows_and_headers(students):
 
 
 def progress_rows_and_headers(students):
-    from memorization.services import get_progress_summary
-    from predictions.services import calculate_target_progress
-    headers = [
-        "Öğrenci", "Toplam Sayfa", "Tamamlanan", "Tekrar Bekleyen", "Çalışılmadı", "İlerleme (%)",
-        "Hedef Tarih", "Hedefe Göre Beklenen", "Hedef İlerleme (%)", "Gereken Haftalık Tempo",
-    ]
+    from memorization.services import get_progress_summary, get_juz_progress_summary
+    headers = ["Öğrenci", "Tamamlanan Cüz", "Tekrar Bekleyen Cüz", "Çalışılmamış Cüz", "İlerleme (%)"]
     rows = []
     for s in students:
         summary = get_progress_summary(s)
-        target = calculate_target_progress(s)
-        if target:
-            target_cols = [
-                s.target_completion_date.strftime("%d.%m.%Y"),
-                target["expected_pages_by_now"],
-                f"%{target['target_progress_percent']}",
-                target["required_weekly_pace"] if target["required_weekly_pace"] is not None else "-",
-            ]
-        else:
-            target_cols = ["-", "-", "-", "-"]
+        juz_summary = get_juz_progress_summary(s)
         rows.append([
-            s.full_name, summary["total_pages"], summary["completed"],
-            summary["needs_revision"], summary["not_studied"], summary["progress_percent"],
-            *target_cols,
+            s.full_name,
+            f"{juz_summary['completed_juz']} / {juz_summary['total_juz']}",
+            juz_summary["needs_revision_juz"],
+            juz_summary["not_studied_juz"],
+            summary["progress_percent"],
         ])
     return headers, rows
 
@@ -197,14 +128,13 @@ def prediction_rows_and_headers(students):
 def build_student_report_card_pdf(student):
     """Tek bir öğrenci için 'karne' niteliğinde birleşik PDF rapor (ilerleme + devam + tahmin + son dersler)."""
     from django.utils import timezone
-    from memorization.services import get_progress_summary
+    from memorization.services import get_progress_summary, get_juz_progress_summary
     from lessons.services import get_attendance_summary
     from lessons.models import LessonRecord
-    from predictions.services import calculate_target_progress
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5 * cm, bottomMargin=1.5 * cm)
-    styles = _get_styles()
+    styles = getSampleStyleSheet()
     elements = [
         Paragraph(f"Öğrenci Karnesi — {student.full_name}", styles["Title"]),
         Paragraph(
@@ -217,14 +147,15 @@ def build_student_report_card_pdf(student):
     ]
 
     progress = get_progress_summary(student)
+    juz_progress = get_juz_progress_summary(student)
     attendance = get_attendance_summary(student)
     prediction = student.predictions.first()
 
     summary_headers = ["Ölçüt", "Değer"]
     summary_rows = [
         ["İlerleme Yüzdesi", f"%{progress['progress_percent']}"],
-        ["Tamamlanan Sayfa", f"{progress['completed']} / {progress['total_pages']}"],
-        ["Tekrar Bekleyen Sayfa", str(progress["needs_revision"])],
+        ["Tamamlanan Cüz", f"{juz_progress['completed_juz']} / {juz_progress['total_juz']}"],
+        ["Tekrar Bekleyen Cüz", str(juz_progress["needs_revision_juz"])],
         ["Devam Yüzdesi", f"%{attendance['attendance_percent']}"],
         ["Toplam Devamsızlık", str(attendance["absent"])],
         ["Bu Ay Devamsızlık", str(attendance["monthly_absent"])],
@@ -237,27 +168,8 @@ def build_student_report_card_pdf(student):
             ["Tahmin Güven Seviyesi", prediction.get_confidence_level_display()],
         ]
 
-    target_progress = calculate_target_progress(student)
-    if target_progress:
-        summary_rows += [
-            ["Hedef Bitiş Tarihi", student.target_completion_date.strftime("%d.%m.%Y")],
-            ["Hedefe Göre Bugün Olması Gereken", f"{target_progress['expected_pages_by_now']} sayfa"],
-            ["Hedefe Göre İlerleme", f"%{target_progress['target_progress_percent']}"],
-            [
-                "Hedeften Fark",
-                (f"{target_progress['pages_ahead_behind_abs']} sayfa önde" if target_progress["pages_ahead_behind"] > 0
-                 else f"{target_progress['pages_ahead_behind_abs']} sayfa geride" if target_progress["pages_ahead_behind"] < 0
-                 else "Tam hedefte"),
-            ],
-        ]
-        if target_progress["target_date_passed"]:
-            summary_rows.append(["Uyarı", f"Hedef tarih geçti, {target_progress['remaining_pages']} sayfa kaldı"])
-        elif target_progress["required_weekly_pace"] is not None:
-            summary_rows.append(["Hedefte Kalmak İçin Gereken Tempo", f"Haftada {target_progress['required_weekly_pace']} sayfa"])
-
     summary_table = Table([summary_headers] + summary_rows, colWidths=[8 * cm, 8 * cm])
     summary_table.setStyle(TableStyle([
-        *_TABLE_FONT_STYLE,
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
@@ -274,7 +186,6 @@ def build_student_report_card_pdf(student):
     lesson_headers, lesson_rows = lesson_rows_and_headers(lessons)
     lesson_table = Table([lesson_headers] + (lesson_rows or [["Kayıt yok"] + [""] * (len(lesson_headers) - 1)]), repeatRows=1)
     lesson_table.setStyle(TableStyle([
-        *_TABLE_FONT_STYLE,
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTSIZE", (0, 0), (-1, -1), 7.5),

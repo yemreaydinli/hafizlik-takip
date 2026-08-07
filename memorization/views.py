@@ -2,12 +2,14 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views import View
 
+from core.quran import TOTAL_JUZ, juz_page_range
 from predictions.services import calculate_prediction
 from students.models import Student
-from .models import MemorizationPage
-from .services import get_page_map, get_progress_summary, bulk_apply_range
+from .models import MemorizationPage, JuzTurCount
+from .services import get_juz_map, get_progress_summary, bulk_apply_range
 
 
 class MemorizationMapView(LoginRequiredMixin, View):
@@ -20,32 +22,50 @@ class MemorizationMapView(LoginRequiredMixin, View):
         student = self._get_student(request, student_pk)
         context = {
             "student": student,
-            "page_map": get_page_map(student),
+            "juz_map": get_juz_map(student),
             "summary": get_progress_summary(student),
             "status_choices": MemorizationPage.Status.choices,
+            "total_juz": TOTAL_JUZ,
         }
         return render(request, "memorization/map.html", context)
 
     def post(self, request, student_pk):
         """Başlangıç Durumu Aktarımı: sisteme kayıttan önce ezberlenmiş/tekrar edilmiş
-        sayfa aralıklarını toplu olarak işaretler. Böylece Akıllı Tahmin Motoru
+        cüzleri toplu olarak işaretler. Böylece Akıllı Tahmin Motoru
         'kalan sayfa' hesabını öğrencinin gerçek mevcut durumuna göre yapar."""
         student = self._get_student(request, student_pk)
         try:
-            start_page = int(request.POST.get("start_page"))
-            end_page = int(request.POST.get("end_page"))
+            start_juz = int(request.POST.get("start_juz"))
+            end_juz = int(request.POST.get("end_juz"))
             status = request.POST.get("status")
         except (TypeError, ValueError):
-            messages.error(request, "Geçerli bir sayfa aralığı girin.")
+            messages.error(request, "Geçerli bir cüz aralığı girin.")
             return redirect(reverse("memorization:map", kwargs={"student_pk": student.pk}))
 
         valid_statuses = dict(MemorizationPage.Status.choices)
-        if status not in valid_statuses or not (1 <= start_page <= 604 and 1 <= end_page <= 604):
-            messages.error(request, "Geçersiz sayfa aralığı veya durum.")
+        if status not in valid_statuses or not (1 <= start_juz <= TOTAL_JUZ and 1 <= end_juz <= TOTAL_JUZ):
+            messages.error(request, "Geçersiz cüz aralığı veya durum.")
             return redirect(reverse("memorization:map", kwargs={"student_pk": student.pk}))
 
+        start_juz, end_juz = min(start_juz, end_juz), max(start_juz, end_juz)
+        start_page, _ = juz_page_range(start_juz)
+        _, end_page = juz_page_range(end_juz)
+
         updated = bulk_apply_range(student, start_page, end_page, status)
+
+        if status == MemorizationPage.Status.COMPLETED:
+            today = timezone.localdate()
+            for juz_number in range(start_juz, end_juz + 1):
+                tur, _ = JuzTurCount.objects.get_or_create(student=student, juz_number=juz_number)
+                if tur.tur_count < 1:
+                    tur.tur_count = 1
+                    tur.last_tur_date = tur.last_tur_date or today
+                    tur.save()
+
         # Tahmin motorunu güncel duruma göre yeniden hesapla.
         calculate_prediction(student, persist=True)
-        messages.success(request, f"{updated} sayfa '{valid_statuses[status]}' olarak güncellendi.")
+        messages.success(
+            request,
+            f"{start_juz}. Cüz - {end_juz}. Cüz arası ({updated} sayfa) '{valid_statuses[status]}' olarak güncellendi.",
+        )
         return redirect(reverse("memorization:map", kwargs={"student_pk": student.pk}))

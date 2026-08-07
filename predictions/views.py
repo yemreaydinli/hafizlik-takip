@@ -16,9 +16,11 @@ class PredictionDetailView(LoginRequiredMixin, View):
 
         prediction = calculate_prediction(student, persist=True)
         history = student.predictions.all()[:10]
+        remaining_juz = round(prediction.remaining_pages / 20, 1) if prediction else None
 
         return render(request, "predictions/detail.html", {
             "student": student,
             "prediction": prediction,
             "history": history,
+            "remaining_juz": remaining_juz,
         })

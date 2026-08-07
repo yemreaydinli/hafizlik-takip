@@ -10,6 +10,7 @@ from students.models import Student
 from lessons.models import LessonRecord
 from memorization.models import RevisionRecord
 from predictions.services import calculate_prediction
+from core.quran import juz_of_page, juz_page_range
 
 
 class Command(BaseCommand):
@@ -57,8 +58,13 @@ class Command(BaseCommand):
                 if attended:
                     if lesson.ham_end_page:
                         page = lesson.ham_end_page + 1
-                    if i % 5 == 0 and page > 5:
-                        RevisionRecord.objects.create(lesson=lesson, start_page=max(page - 6, 1), end_page=page - 2)
+                    # Her ~5 günde bir, o ana kadar ezberlenmiş cüzlerden birini "tur" olarak tekrar ettir
+                    # (cüz sınırlarına hizalı aralık, JuzTurCount sayaçlarının doğru işlemesi için önemlidir).
+                    if i % 5 == 0 and page > 20:
+                        completed_juz = juz_of_page(page - 1) or 1
+                        revise_juz = random.randint(1, completed_juz)
+                        start, end = juz_page_range(revise_juz)
+                        RevisionRecord.objects.create(lesson=lesson, start_page=start, end_page=end)
             calculate_prediction(student)
             self.stdout.write(self.style.SUCCESS(f"Örnek öğrenci oluşturuldu: {student.full_name}"))
 

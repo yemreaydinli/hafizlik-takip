@@ -2,7 +2,8 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone
-from .models import MemorizationPage
+from core.quran import TOTAL_JUZ, juz_page_range, juz_of_page
+from .models import MemorizationPage, JuzTurCount
 
 
 def get_page_map(student):
@@ -19,6 +20,59 @@ def get_page_map(student):
         status = page.status if page else MemorizationPage.Status.NOT_STUDIED
         page_map.append({"page_number": page_no, "status": status})
     return page_map
+
+
+def get_juz_map(student):
+    """
+    Öğrencinin 30 cüzlük hafızlık haritasını döndürür. Her cüz için:
+    - status: cüzün genel durumu (tamamı yeşilse yeşil, hiç çalışılmadıysa gri, aksi halde sarı)
+    - tur_count: o cüzün kaçıncı kez tekrar (has) edildiği
+    - progress_percent: cüz içinde tamamlanan sayfa yüzdesi
+    """
+    pages = {p.page_number: p for p in MemorizationPage.objects.filter(student=student)}
+    turs = {t.juz_number: t for t in JuzTurCount.objects.filter(student=student)}
+
+    juz_map = []
+    for juz_number in range(1, TOTAL_JUZ + 1):
+        start, end = juz_page_range(juz_number)
+        statuses = [
+            pages[p].status if p in pages else MemorizationPage.Status.NOT_STUDIED
+            for p in range(start, end + 1)
+        ]
+        total_in_juz = len(statuses)
+        completed = statuses.count(MemorizationPage.Status.COMPLETED)
+        started = sum(1 for s in statuses if s != MemorizationPage.Status.NOT_STUDIED)
+
+        if total_in_juz and completed == total_in_juz:
+            juz_status = MemorizationPage.Status.COMPLETED
+        elif started > 0:
+            juz_status = MemorizationPage.Status.NEEDS_REVISION
+        else:
+            juz_status = MemorizationPage.Status.NOT_STUDIED
+
+        tur = turs.get(juz_number)
+        juz_map.append({
+            "juz_number": juz_number,
+            "status": juz_status,
+            "tur_count": tur.tur_count if tur else 0,
+            "last_tur_date": tur.last_tur_date if tur else None,
+            "page_range": f"{start}-{end}",
+            "progress_percent": round((completed / total_in_juz) * 100, 1) if total_in_juz else 0,
+        })
+    return juz_map
+
+
+def get_juz_progress_summary(student):
+    """Cüz bazında özet: kaç cüz tamamlandı, kaç cüz tekrar bekliyor, kaç cüz hiç çalışılmadı."""
+    juz_map = get_juz_map(student)
+    completed = sum(1 for j in juz_map if j["status"] == MemorizationPage.Status.COMPLETED)
+    needs_revision = sum(1 for j in juz_map if j["status"] == MemorizationPage.Status.NEEDS_REVISION)
+    return {
+        "total_juz": TOTAL_JUZ,
+        "completed_juz": completed,
+        "needs_revision_juz": needs_revision,
+        "not_studied_juz": TOTAL_JUZ - completed - needs_revision,
+    }
 
 
 def bulk_apply_range(student, start_page, end_page, status):
@@ -79,5 +133,9 @@ def get_stale_pages(student, days_threshold=14, limit=10):
     result = []
     for page in stale:
         days_waiting = (today - page.first_memorized_date).days if page.first_memorized_date else None
-        result.append({"page_number": page.page_number, "days_waiting": days_waiting})
+        result.append({
+            "page_number": page.page_number,
+            "juz_number": juz_of_page(page.page_number),
+            "days_waiting": days_waiting,
+        })
     return result

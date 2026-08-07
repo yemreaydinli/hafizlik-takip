@@ -1,3 +1,5 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
@@ -5,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import ListView
 
+from core.quran import TOTAL_JUZ, juz_page_count
 from students.models import Student
 from .forms import LessonRecordForm, RevisionRecordFormSet
 from .models import LessonRecord
@@ -15,6 +18,11 @@ def _scoped_students(user):
     if user.is_admin_role:
         return Student.objects.all()
     return Student.objects.filter(teacher=user)
+
+
+def _juz_page_counts_json():
+    """Şablonda cüz seçildiğinde 'cüz içi sayfa' alanının üst sınırını göstermek için."""
+    return json.dumps({str(j): juz_page_count(j) for j in range(1, TOTAL_JUZ + 1)})
 
 
 class LessonListView(LoginRequiredMixin, ListView):
@@ -64,6 +72,7 @@ def lesson_create(request, student_pk):
 
     return render(request, "lessons/form.html", {
         "form": form, "formset": formset, "student": student,
+        "juz_page_counts_json": _juz_page_counts_json(),
     })
 
 
@@ -100,6 +109,7 @@ def lesson_update(request, pk):
 
     return render(request, "lessons/form.html", {
         "form": form, "formset": formset, "student": lesson.student, "lesson": lesson,
+        "juz_page_counts_json": _juz_page_counts_json(),
     })
 
 

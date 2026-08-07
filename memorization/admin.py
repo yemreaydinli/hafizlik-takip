@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import MemorizationPage, RevisionRecord
+from .models import MemorizationPage, RevisionRecord, JuzTurCount
 
 RevisionRecord.page_count.fget.short_description = "Sayfa Sayısı"
 
@@ -13,7 +13,7 @@ class MemorizationPageAdmin(admin.ModelAdmin):
     öğrencinin sisteme kayıttan önceki mevcut durumunu aktarmak için elle de düzenlenebilir.
     """
 
-    list_display = ("student", "page_number", "status", "revision_count", "first_memorized_date", "last_revised_date")
+    list_display = ("student", "page_number", "juz_number_display", "status", "revision_count", "first_memorized_date", "last_revised_date")
     list_filter = ("status",)
     list_editable = ("status",)
     search_fields = ("student__full_name",)
@@ -21,10 +21,27 @@ class MemorizationPageAdmin(admin.ModelAdmin):
     ordering = ("student", "page_number")
     list_per_page = 50
 
+    @admin.display(description="Cüz No")
+    def juz_number_display(self, obj):
+        return obj.juz_number
+
 
 @admin.register(RevisionRecord)
 class RevisionRecordAdmin(admin.ModelAdmin):
-    """Bir ders kaydına bağlı tekrar (has) sayfa aralıkları. Genelde ders kaydı ekranından (satır içi) yönetilir."""
+    """Bir ders kaydına bağlı tekrar (has) cüzleri. Genelde ders kaydı ekranından (satır içi) yönetilir."""
 
-    list_display = ("lesson", "start_page", "end_page", "page_count")
+    list_display = ("lesson", "juz_label", "start_page", "end_page", "page_count")
     search_fields = ("lesson__student__full_name",)
+
+
+@admin.register(JuzTurCount)
+class JuzTurCountAdmin(admin.ModelAdmin):
+    """Öğrenci başına, her cüzün kaçıncı kez tekrar (has) edildiğini gösteren sayaç. Elle düzenlenmez, otomatik hesaplanır."""
+
+    list_display = ("student", "juz_number", "tur_count", "last_tur_date")
+    list_filter = ("juz_number",)
+    search_fields = ("student__full_name",)
+    ordering = ("student", "juz_number")
+
+    def has_add_permission(self, request):
+        return False

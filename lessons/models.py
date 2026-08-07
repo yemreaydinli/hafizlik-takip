@@ -57,6 +57,26 @@ class LessonRecord(models.Model):
         return sum(r.page_count for r in self.revision_ranges.all())
 
     @property
+    def ham_juz_label(self):
+        """Ham (yeni ezber) aralığını 'X. Cüz (a-b. sf)' biçiminde okunabilir hale getirir."""
+        if not self.ham_start_page or not self.ham_end_page:
+            return None
+        from core.quran import juz_of_page, absolute_to_local_page
+
+        start_juz = juz_of_page(self.ham_start_page)
+        end_juz = juz_of_page(self.ham_end_page)
+        start_local = absolute_to_local_page(self.ham_start_page)
+        end_local = absolute_to_local_page(self.ham_end_page)
+        if start_juz == end_juz:
+            return f"{start_juz}. Cüz ({start_local}-{end_local}. sf)"
+        return f"{start_juz}. Cüz {start_local}.sf – {end_juz}. Cüz {end_local}.sf"
+
+    @property
+    def revision_juz_labels(self):
+        """Bu derste tekrar edilen cüzlerin listesini döner (örn. ['3. Cüz', '5. Cüz'])."""
+        return [r.juz_label for r in self.revision_ranges.all() if r.juz_number]
+
+    @property
     def quality_score(self):
         if not self.quality:
             return None

@@ -4,11 +4,12 @@ from memorization.models import RevisionRecord
 
 
 class RevisionRecordInline(admin.TabularInline):
-    """Bir ders kaydına bağlı tekrar (has) sayfa aralıklarını aynı ekranda düzenlemeyi sağlar."""
+    """Bir ders kaydına bağlı tekrar (has) edilen cüzleri aynı ekranda düzenlemeyi sağlar."""
     model = RevisionRecord
     extra = 1
-    verbose_name = "Tekrar (Has) Aralığı"
-    verbose_name_plural = "Tekrar (Has) Aralıkları"
+    fields = ("start_page", "end_page")
+    verbose_name = "Tekrar (Has) Cüzü"
+    verbose_name_plural = "Tekrar (Has) Cüzleri"
 
 
 @admin.register(LessonRecord)
@@ -19,7 +20,7 @@ class LessonRecordAdmin(admin.ModelAdmin):
     Performans Geçmişi'ni günceller (bkz. lessons/signals.py).
     """
 
-    list_display = ("student", "date", "attendance", "ham_page_count_display", "revision_page_count_display", "quality")
+    list_display = ("student", "date", "attendance", "ham_juz_label", "revision_juz_labels_display", "quality")
     list_filter = ("attendance", "quality", "date")
     search_fields = ("student__full_name",)
     date_hierarchy = "date"
@@ -34,13 +35,13 @@ class LessonRecordAdmin(admin.ModelAdmin):
     )
     readonly_fields = ("created_at", "updated_at")
 
-    @admin.display(description="Ham Sayfa Sayısı")
-    def ham_page_count_display(self, obj):
-        return obj.ham_page_count
+    @admin.display(description="Ham (Cüz)")
+    def ham_juz_label(self, obj):
+        return obj.ham_juz_label or "-"
 
-    @admin.display(description="Tekrar Sayfa Sayısı")
-    def revision_page_count_display(self, obj):
-        return obj.revision_page_count
+    @admin.display(description="Tekrar Edilen Cüzler")
+    def revision_juz_labels_display(self, obj):
+        return ", ".join(obj.revision_juz_labels) or "-"
 
 
 @admin.register(PerformanceHistory)
