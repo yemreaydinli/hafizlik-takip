@@ -1,19 +1,53 @@
 """PDF (reportlab) ve Excel (openpyxl) rapor üretim servisleri."""
 import io
+import os
 
+from django.conf import settings
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+# Reportlab'ın yerleşik fontları (Helvetica vb.) Türkçe karakterleri
+# (ç, ğ, ı, İ, ö, ş, ü) desteklemez. Bu yüzden Unicode destekli bir
+# TTF font kaydedip tüm PDF çıktılarında onu kullanıyoruz.
+_FONT_DIR = os.path.join(settings.BASE_DIR, "static", "fonts")
+_FONT_NAME = "DejaVuSans"
+_FONT_NAME_BOLD = "DejaVuSans-Bold"
+
+if _FONT_NAME not in pdfmetrics.getRegisteredFontNames():
+    pdfmetrics.registerFont(TTFont(_FONT_NAME, os.path.join(_FONT_DIR, "DejaVuSans.ttf")))
+    pdfmetrics.registerFont(TTFont(_FONT_NAME_BOLD, os.path.join(_FONT_DIR, "DejaVuSans-Bold.ttf")))
+    pdfmetrics.registerFontFamily(
+        _FONT_NAME, normal=_FONT_NAME, bold=_FONT_NAME_BOLD, italic=_FONT_NAME, boldItalic=_FONT_NAME_BOLD
+    )
+
+
+def _get_styles():
+    """Türkçe karakterleri destekleyen fontu kullanan stil sayfası döndürür."""
+    styles = getSampleStyleSheet()
+    for style_name in ("Title", "Normal", "Heading3", "Heading1", "Heading2"):
+        styles[style_name].fontName = _FONT_NAME
+    styles["Title"].fontName = _FONT_NAME_BOLD
+    styles["Heading3"].fontName = _FONT_NAME_BOLD
+    return styles
+
+
+_TABLE_FONT_STYLE = [
+    ("FONTNAME", (0, 0), (-1, -1), _FONT_NAME),
+    ("FONTNAME", (0, 0), (-1, 0), _FONT_NAME_BOLD),
+]
 
 
 def build_pdf_table(title, headers, rows, subtitle=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=1.5 * cm, bottomMargin=1.5 * cm)
-    styles = getSampleStyleSheet()
+    styles = _get_styles()
     elements = [Paragraph(title, styles["Title"])]
     if subtitle:
         elements.append(Paragraph(subtitle, styles["Normal"]))
@@ -22,6 +56,7 @@ def build_pdf_table(title, headers, rows, subtitle=None):
     data = [headers] + rows if rows else [headers, ["Kayıt bulunamadı"] + [""] * (len(headers) - 1)]
     table = Table(data, repeatRows=1)
     table.setStyle(TableStyle([
+        *_TABLE_FONT_STYLE,
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
@@ -130,7 +165,7 @@ def build_student_report_card_pdf(student):
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5 * cm, bottomMargin=1.5 * cm)
-    styles = getSampleStyleSheet()
+    styles = _get_styles()
     elements = [
         Paragraph(f"Öğrenci Karnesi — {student.full_name}", styles["Title"]),
         Paragraph(
@@ -165,6 +200,7 @@ def build_student_report_card_pdf(student):
 
     summary_table = Table([summary_headers] + summary_rows, colWidths=[8 * cm, 8 * cm])
     summary_table.setStyle(TableStyle([
+        *_TABLE_FONT_STYLE,
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
@@ -181,6 +217,7 @@ def build_student_report_card_pdf(student):
     lesson_headers, lesson_rows = lesson_rows_and_headers(lessons)
     lesson_table = Table([lesson_headers] + (lesson_rows or [["Kayıt yok"] + [""] * (len(lesson_headers) - 1)]), repeatRows=1)
     lesson_table.setStyle(TableStyle([
+        *_TABLE_FONT_STYLE,
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTSIZE", (0, 0), (-1, -1), 7.5),
