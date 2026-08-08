@@ -91,7 +91,16 @@ def _sync_juz_tur_counts(student):
     tarihlerinin sayısıdır; bu fonksiyon her çağrıldığında sıfırdan yeniden
     hesaplandığı (idempotent) için ders kaydı düzenleme/silme durumunda çift
     sayım oluşmaz.
+
+    'synced_from_lessons=False' olan (memorization.views ile 'Başlangıç Durumu
+    Aktarımı' sırasında elle 'Tamamlandı' işaretlenip has tekrar sayacı 1'e
+    ayarlanmış) cüzlere, o cüz için gerçek bir RevisionRecord girilene kadar
+    DOKUNULMAZ -- bkz. memorization/models.py:JuzTurCount.synced_from_lessons.
+    Aksi halde (eski davranış) bu öğrencinin İLGİSİZ bir cüzü için tek bir ders
+    kaydı ekleyip/silmek bile, elle aktarılmış tüm 'has tekrar' rozetlerini
+    sıfırlıyordu.
     """
+    touched = {}
     for juz_number in range(1, TOTAL_JUZ + 1):
         start, end = juz_page_range(juz_number)
         agg = (
@@ -100,12 +109,30 @@ def _sync_juz_tur_counts(student):
             ).aggregate(cnt=Count("lesson_id", distinct=True), last=Max("lesson__date"))
         )
         if agg["cnt"]:
-            JuzTurCount.objects.update_or_create(
-                student=student, juz_number=juz_number,
-                defaults={"tur_count": agg["cnt"], "last_tur_date": agg["last"]},
-            )
-        else:
-            JuzTurCount.objects.filter(student=student, juz_number=juz_number).update(tur_count=0, last_tur_date=None)
+            touched[juz_number] = agg
+
+    lesson_synced_existing = {
+        t.juz_number: t
+        for t in JuzTurCount.objects.filter(student=student, synced_from_lessons=True)
+    }
+
+    for juz_number, agg in touched.items():
+        tur = lesson_synced_existing.get(juz_number) or JuzTurCount.objects.filter(
+            student=student, juz_number=juz_number
+        ).first() or JuzTurCount(student=student, juz_number=juz_number)
+        tur.synced_from_lessons = True
+        tur.tur_count = agg["cnt"]
+        tur.last_tur_date = agg["last"]
+        tur.save()
+
+    # Artık hiçbir RevisionRecord tarafından desteklenmeyen ama daha önce ders
+    # senkronizasyonuyla hesaplanmış sayaçları sıfırla. Elle ('synced_from_lessons=False')
+    # ayarlanmış sayaçlar bu kapsamın dışındadır, dokunulmaz.
+    stale_juz_numbers = set(lesson_synced_existing) - set(touched)
+    if stale_juz_numbers:
+        JuzTurCount.objects.filter(
+            student=student, juz_number__in=stale_juz_numbers, synced_from_lessons=True
+        ).update(tur_count=0, last_tur_date=None)
 
 
 def _sync_performance_history(lesson: LessonRecord):

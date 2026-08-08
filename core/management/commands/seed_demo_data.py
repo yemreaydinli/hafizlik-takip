@@ -8,6 +8,7 @@ from django.db import transaction
 from accounts.models import User
 from students.models import Student
 from lessons.models import LessonRecord
+from lessons.signals import sync_lesson
 from memorization.models import RevisionRecord
 from predictions.services import calculate_prediction
 from core.quran import juz_of_page, juz_page_range
@@ -65,6 +66,11 @@ class Command(BaseCommand):
                         revise_juz = random.randint(1, completed_juz)
                         start, end = juz_page_range(revise_juz)
                         RevisionRecord.objects.create(lesson=lesson, start_page=start, end_page=end)
+                # ÖNEMLİ: LessonRecord kaydı artık bir post_save sinyaliyle otomatik senkronize
+                # EDİLMİYOR (bkz. lessons/signals.py:sync_lesson docstring'i) -- bu yüzden burada
+                # Hafızlık Haritası/JuzTurCount/Performans Geçmişi'nin dolması için elle çağrılması
+                # gerekiyor. Aksi halde demo öğrencisi için tahmin motoru hiç veri bulamaz.
+                sync_lesson(lesson)
             calculate_prediction(student)
             self.stdout.write(self.style.SUCCESS(f"Örnek öğrenci oluşturuldu: {student.full_name}"))
 

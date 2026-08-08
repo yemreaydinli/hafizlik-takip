@@ -38,8 +38,8 @@ class RevisionRecordAdmin(admin.ModelAdmin):
 class JuzTurCountAdmin(admin.ModelAdmin):
     """Öğrenci başına, her cüzün kaçıncı kez tekrar (has) edildiğini gösteren sayaç. Elle düzenlenmez, otomatik hesaplanır."""
 
-    list_display = ("student", "juz_number", "tur_count", "last_tur_date")
-    list_filter = ("juz_number",)
+    list_display = ("student", "juz_number", "tur_count", "last_tur_date", "synced_from_lessons")
+    list_filter = ("juz_number", "synced_from_lessons")
     search_fields = ("student__full_name",)
     ordering = ("student", "juz_number")
 

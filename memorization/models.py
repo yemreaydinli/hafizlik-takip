@@ -87,7 +87,9 @@ class JuzTurCount(models.Model):
     ("has tekrar sayacı"). Bu, ham derste ilerlenen "tur" kavramından farklıdır --
     has tekrar, tamamlanmış bir cüzün baştan sona tekrar dinletilme sayısıdır.
     Ders kaydı kaydedildiğinde lessons/signals.py:sync_lesson() aracılığıyla
-    sıfırdan yeniden hesaplanır; elle düzenlenmesi gerekmez.
+    sıfırdan yeniden hesaplanır; elle düzenlenmesi gerekmez -- tek istisna,
+    'Başlangıç Durumu Aktarımı' ile elle 'Tamamlandı' işaretlenen cüzlerdir
+    (bkz. synced_from_lessons).
     """
 
     student = models.ForeignKey(
@@ -96,6 +98,17 @@ class JuzTurCount(models.Model):
     juz_number = models.PositiveSmallIntegerField(verbose_name="Cüz No")
     tur_count = models.PositiveIntegerField(default=0, verbose_name="Has Tekrar Sayısı")
     last_tur_date = models.DateField(null=True, blank=True, verbose_name="Son Has Tekrar Tarihi")
+    synced_from_lessons = models.BooleanField(
+        default=True,
+        verbose_name="Ders Kaydından Senkronize",
+        help_text=(
+            "True ise bu sayacı lessons/signals.py:_sync_juz_tur_counts RevisionRecord "
+            "kayıtlarından otomatik hesaplamıştır ve ders kaydı eklenip/silindiğinde yeniden "
+            "hesaplanabilir. False ise 'Başlangıç Durumu Aktarımı' (memorization.views ile elle "
+            "'Tamamlandı' işaretleme) sırasında elle ayarlanmıştır ve o cüz için gerçek bir Has "
+            "(RevisionRecord) kaydı girilene kadar ders senkronizasyonu bu sayacı sıfırlamaz."
+        ),
+    )
 
     class Meta:
         verbose_name = "Cüz Has Tekrar Sayacı"

@@ -53,14 +53,24 @@ class MemorizationMapView(LoginRequiredMixin, View):
 
         updated = bulk_apply_range(student, start_page, end_page, status)
 
-        if status == MemorizationPage.Status.COMPLETED:
-            today = timezone.localdate()
-            for juz_number in range(start_juz, end_juz + 1):
-                tur, _ = JuzTurCount.objects.get_or_create(student=student, juz_number=juz_number)
+        # Bu cüz aralığı için has tekrar sayacını (JuzTurCount) da elle güncelle.
+        # synced_from_lessons=False olarak işaretlenir ki lessons/signals.py:_sync_juz_tur_counts
+        # bu manuel değeri, o cüz için gerçek bir ders/Has kaydı girilmeden ÜZERİNE YAZMASIN
+        # (bkz. memorization/models.py:JuzTurCount.synced_from_lessons).
+        today = timezone.localdate()
+        for juz_number in range(start_juz, end_juz + 1):
+            tur, _ = JuzTurCount.objects.get_or_create(student=student, juz_number=juz_number)
+            if status == MemorizationPage.Status.COMPLETED:
                 if tur.tur_count < 1:
                     tur.tur_count = 1
                     tur.last_tur_date = tur.last_tur_date or today
-                    tur.save()
+            else:
+                # 'Tekrar Gerekiyor' veya 'Çalışılmadı (sıfırla)' seçildiğinde, bu cüz artık
+                # baştan sona tamamlanmış sayılmadığından elle konmuş has tekrar rozeti de kaldırılır.
+                tur.tur_count = 0
+                tur.last_tur_date = None
+            tur.synced_from_lessons = False
+            tur.save()
 
         # Tahmin motorunu güncel duruma göre yeniden hesapla.
         calculate_prediction(student, persist=True)
