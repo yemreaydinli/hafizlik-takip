@@ -10,8 +10,11 @@ class PredictionHistoryAdmin(admin.ModelAdmin):
     görüntüleme ve geçmiş analizi içindir, elle yeni kayıt eklenmez.
     """
 
-    list_display = ("student", "calculated_date", "estimated_completion_date", "estimated_remaining_days", "method_used", "confidence_level")
-    list_filter = ("method_used", "confidence_level")
+    list_display = (
+        "student", "calculated_date", "estimated_completion_date", "estimated_remaining_days",
+        "bottleneck_phase", "remaining_ham_pages", "remaining_has_pages", "method_used", "confidence_level",
+    )
+    list_filter = ("method_used", "confidence_level", "bottleneck_phase")
     search_fields = ("student__full_name",)
     date_hierarchy = "calculated_date"
 

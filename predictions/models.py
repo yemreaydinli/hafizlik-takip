@@ -14,6 +14,17 @@ class PredictionHistory(models.Model):
         MEDIUM = "medium", "Orta"
         HIGH = "high", "Yüksek"
 
+    class Bottleneck(models.TextChoices):
+        """
+        Cüz/Tur/Pişmiş sistemine geçişle birlikte tahmin artık iki ayrı hattı
+        (ham ve has) izliyor; bu alan nihai tahmini hangi hattın belirlediğini
+        gösterir (bkz. predictions/services.py:calculate_prediction docstring'i).
+        Boş ('') değer, hiçbir hat için tahmin üretilemediği (pace verisi yok)
+        durumunu ifade eder.
+        """
+        HAM = "ham", "Ham (Yeni Ezber)"
+        HAS = "has", "Has (Pişirme/Tekrar)"
+
     student = models.ForeignKey("students.Student", on_delete=models.CASCADE, related_name="predictions", verbose_name="Öğrenci")
     # NOT: Bilerek auto_now_add KULLANILMIYOR. Django'nun DateField.auto_now_add
     # implementasyonu tarih için timezone.localdate() (TIME_ZONE=Europe/Istanbul'a göre
@@ -29,8 +40,24 @@ class PredictionHistory(models.Model):
     estimated_remaining_days = models.PositiveIntegerField(null=True, blank=True, verbose_name="Tahmini Kalan Gün")
     confidence_level = models.CharField(max_length=10, choices=Confidence.choices, default=Confidence.LOW, verbose_name="Güven Seviyesi")
     method_used = models.CharField(max_length=20, choices=Method.choices, default=Method.SIMPLE_AVERAGE, verbose_name="Hesaplama Yöntemi")
-    remaining_pages = models.PositiveSmallIntegerField(default=0, verbose_name="Kalan Sayfa")
-    daily_pace = models.FloatField(default=0, verbose_name="Günlük Ortalama İlerleme (Sayfa)")
+
+    # ÖNEMLİ: remaining_pages/daily_pace alanları artık HAS (pişirme) bazlı --
+    # yani gerçek "hafız olma" darboğazını yansıtır. Eskiden (sadece ham
+    # bazlıyken) bu alanlar öğrencinin ilk geçişi ne zaman bitireceğini
+    # gösteriyordu; şimdi asıl soruyu ("ne zaman gerçekten hafız olur")
+    # cevaplıyor. Ham/has kırılımı için aşağıdaki yeni alanlara bakın.
+    remaining_pages = models.PositiveSmallIntegerField(default=0, verbose_name="Kalan Sayfa (Has/Pişirme Bazlı)")
+    daily_pace = models.FloatField(default=0, verbose_name="Günlük İlerleme (Belirleyici Faz, Sayfa)")
+
+    remaining_ham_pages = models.PositiveSmallIntegerField(default=0, verbose_name="Kalan Ham Sayfa")
+    remaining_has_pages = models.PositiveSmallIntegerField(default=0, verbose_name="Kalan Has (Pişirme) Sayfa")
+    ham_daily_pace = models.FloatField(default=0, verbose_name="Günlük Ham Hızı (Sayfa)")
+    has_daily_pace = models.FloatField(default=0, verbose_name="Günlük Has Hızı (Sayfa)")
+    bottleneck_phase = models.CharField(
+        max_length=10, choices=Bottleneck.choices, blank=True, default="",
+        verbose_name="Belirleyici Faz",
+        help_text="Tahmini bitiş tarihini hangi hattın (ham/has) belirlediğini gösterir.",
+    )
 
     class Meta:
         verbose_name = "Tahmin Geçmişi"
