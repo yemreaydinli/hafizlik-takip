@@ -3,6 +3,7 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -67,16 +68,21 @@ def lesson_create(request, student_pk):
 
     if request.method == "POST":
         form = LessonRecordForm(request.POST, instance=instance)
-        if form.is_valid():
-            lesson = form.save()
-            formset = RevisionRecordFormSet(request.POST, instance=lesson)
-            if formset.is_valid():
+        # ÖNEMLİ: formset, LessonRecord henüz kaydedilmeden (kaydedilmemiş bir
+        # instance ile) oluşturuluyor. inlineformset_factory bunu destekler:
+        # formset.is_valid() sırasında henüz DB'ye yazma yapılmaz. Böylece hem
+        # form hem formset geçerli olduğundan EMİN OLMADAN hiçbir şey
+        # kaydedilmez -- form.is_valid() doğruysa bile formset geçersizse artık
+        # yarım (tekrar bilgisi eksik) bir LessonRecord veritabanında kalmaz.
+        formset = RevisionRecordFormSet(request.POST, instance=instance)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                lesson = form.save()
+                formset.instance = lesson
                 formset.save()
                 sync_lesson(lesson)
-                messages.success(request, "Günlük ders kaydı eklendi.")
-                return redirect(reverse("students:detail", kwargs={"pk": student.pk}))
-        else:
-            formset = RevisionRecordFormSet(request.POST, instance=instance)
+            messages.success(request, "Günlük ders kaydı eklendi.")
+            return redirect(reverse("students:detail", kwargs={"pk": student.pk}))
     else:
         initial_date = today if request.GET.get("today") == "1" else None
         form = LessonRecordForm(instance=instance, initial={"date": initial_date})
@@ -113,9 +119,10 @@ def lesson_update(request, pk):
         form = LessonRecordForm(request.POST, instance=lesson)
         formset = RevisionRecordFormSet(request.POST, instance=lesson)
         if form.is_valid() and formset.is_valid():
-            form.save()
-            formset.save()
-            sync_lesson(lesson)
+            with transaction.atomic():
+                form.save()
+                formset.save()
+                sync_lesson(lesson)
             messages.success(request, "Ders kaydı güncellendi.")
             return redirect(reverse("students:detail", kwargs={"pk": lesson.student.pk}))
     else:

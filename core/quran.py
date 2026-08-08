@@ -17,10 +17,22 @@ TOTAL_JUZ = 30
 
 
 def juz_page_range(juz_number):
-    """Verilen cüz numarasının (1-30) kapsadığı mutlak (start_page, end_page) aralığını döner."""
+    """Verilen cüz numarasının (1-30) kapsadığı mutlak (start_page, end_page) aralığını döner.
+
+    Son cüz (TOTAL_JUZ), Mushaf'ın toplam sayfa sayısına (TOTAL_QURAN_PAGES) kadar
+    UZATILIR: 30 * PAGES_PER_JUZ = 600 iken TOTAL_QURAN_PAGES = 604 olduğu için, eski
+    `min(juz_number * PAGES_PER_JUZ, total_pages)` ifadesi son cüzü 581-600 ile
+    sınırlıyor ve 601-604. sayfalar hiçbir cüze dahil olmuyordu -- bu sayfalar ne
+    günlük ders girişinden (ham/has cüz seçimiyle) ne de Başlangıç Durumu
+    Aktarımı'ndan asla işaretlenemiyor, dolayısıyla ilerleme hiçbir zaman %100'e
+    ulaşamıyordu. Son cüz artık kalan tüm sayfaları (581-604, 24 sayfa) kapsar.
+    """
     total_pages = settings.TOTAL_QURAN_PAGES
     start = (juz_number - 1) * PAGES_PER_JUZ + 1
-    end = min(juz_number * PAGES_PER_JUZ, total_pages)
+    if juz_number >= TOTAL_JUZ:
+        end = total_pages
+    else:
+        end = min(juz_number * PAGES_PER_JUZ, total_pages)
     return start, end
 
 

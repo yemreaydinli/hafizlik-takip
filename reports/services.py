@@ -1,19 +1,67 @@
 """PDF (reportlab) ve Excel (openpyxl) rapor üretim servisleri."""
 import io
 
+from django.conf import settings
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+# ---------------------------------------------------------------------------
+# Türkçe karakter desteği (ğ, ş, ı, İ, ö, ü, ç):
+# ReportLab'ın yerleşik (core) fontları -- Helvetica, Times-Roman vb. -- WinAnsi
+# kodlamasını kullanır ve bu kodlamada ğ, ş, ı, İ karakterleri YOKTUR. Bu yüzden
+# PDF'lerde (özellikle öğrenci karnesinde) bu harfler eksik/bozuk çıkıyordu.
+# Projede zaten static/fonts/ altında bulunan (ama hiç kullanılmayan) Unicode
+# destekli DejaVu Sans fontlarını burada ReportLab'a kaydedip tüm PDF
+# metinlerinde ve tablolarda bu fontları kullanıyoruz.
+# ---------------------------------------------------------------------------
+FONT_REGULAR = "DejaVuSans"
+FONT_BOLD = "DejaVuSans-Bold"
+
+if FONT_REGULAR not in pdfmetrics.getRegisteredFontNames():
+    _fonts_dir = settings.BASE_DIR / "static" / "fonts"
+    pdfmetrics.registerFont(TTFont(FONT_REGULAR, str(_fonts_dir / "DejaVuSans.ttf")))
+    pdfmetrics.registerFont(TTFont(FONT_BOLD, str(_fonts_dir / "DejaVuSans-Bold.ttf")))
+
+
+def _tr_styles():
+    """getSampleStyleSheet()'in Türkçe karakterleri doğru gösteren (DejaVu Sans
+    fontlu) sürümü. Başlık/gövde stillerinin fontName'i burada değiştirilir."""
+    styles = getSampleStyleSheet()
+    styles["Title"].fontName = FONT_BOLD
+    styles["Normal"].fontName = FONT_REGULAR
+    styles["Heading3"].fontName = FONT_BOLD
+    return styles
+
+
+def _table_style(extra=None):
+    base = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
+        ("FONTNAME", (0, 1), (-1, -1), FONT_REGULAR),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]
+    if extra:
+        base.extend(extra)
+    return TableStyle(base)
 
 
 def build_pdf_table(title, headers, rows, subtitle=None):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=1.5 * cm, bottomMargin=1.5 * cm)
-    styles = getSampleStyleSheet()
+    styles = _tr_styles()
     elements = [Paragraph(title, styles["Title"])]
     if subtitle:
         elements.append(Paragraph(subtitle, styles["Normal"]))
@@ -21,16 +69,7 @@ def build_pdf_table(title, headers, rows, subtitle=None):
 
     data = [headers] + rows if rows else [headers, ["Kayıt bulunamadı"] + [""] * (len(headers) - 1)]
     table = Table(data, repeatRows=1)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
+    table.setStyle(_table_style())
     elements.append(table)
     doc.build(elements)
     buffer.seek(0)
@@ -134,7 +173,7 @@ def build_student_report_card_pdf(student):
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5 * cm, bottomMargin=1.5 * cm)
-    styles = getSampleStyleSheet()
+    styles = _tr_styles()
     elements = [
         Paragraph(f"Öğrenci Karnesi — {student.full_name}", styles["Title"]),
         Paragraph(
@@ -169,15 +208,7 @@ def build_student_report_card_pdf(student):
         ]
 
     summary_table = Table([summary_headers] + summary_rows, colWidths=[8 * cm, 8 * cm])
-    summary_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
+    summary_table.setStyle(_table_style([("FONTSIZE", (0, 0), (-1, -1), 9)]))
     elements.append(summary_table)
     elements.append(Spacer(1, 0.8 * cm))
 
@@ -188,6 +219,8 @@ def build_student_report_card_pdf(student):
     lesson_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#065f46")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
+        ("FONTNAME", (0, 1), (-1, -1), FONT_REGULAR),
         ("FONTSIZE", (0, 0), (-1, -1), 7.5),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f5f9")]),
