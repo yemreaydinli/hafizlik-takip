@@ -38,6 +38,16 @@ class LessonRecord(models.Model):
             "('pişmiş') sayfaların da hocaya dinletildiğini onaylar."
         ),
     )
+    pismis_page_count = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Pişmiş Okunan Sayfa Sayısı",
+        help_text=(
+            "pismis_done işaretliyse, ham arkasından kaç sayfa pişmiş okunduğunu "
+            "isteğe bağlı olarak kaydeder (örn. öğrencinin pişmişte kaç sayfa geride "
+            "kaldığını raporlamak için). Boş bırakılabilir."
+        ),
+    )
 
     quality = models.CharField(max_length=10, choices=Quality.choices, null=True, blank=True, verbose_name="Ders Kalitesi")
     notes = models.TextField(blank=True, verbose_name="Günlük Notlar")

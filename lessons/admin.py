@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import LessonRecord, PerformanceHistory
+from .signals import sync_lesson
 from memorization.models import RevisionRecord
 
 
@@ -30,6 +31,7 @@ class LessonRecordAdmin(admin.ModelAdmin):
     fieldsets = (
         ("Ders Bilgileri", {"fields": ("student", "date", "attendance")}),
         ("Ham (Yeni Ezber)", {"fields": ("ham_start_page", "ham_end_page")}),
+        ("Pişmiş", {"fields": ("pismis_done", "pismis_page_count")}),
         ("Değerlendirme", {"fields": ("quality", "notes")}),
         ("Sistem Bilgileri", {"fields": ("created_by", "created_at", "updated_at"), "classes": ("collapse",)}),
     )
@@ -42,6 +44,21 @@ class LessonRecordAdmin(admin.ModelAdmin):
     @admin.display(description="Tekrar Edilen Cüzler")
     def revision_juz_labels_display(self, obj):
         return ", ".join(obj.revision_juz_labels) or "-"
+
+    def save_related(self, request, form, formsets, change):
+        """
+        ÖNEMLİ: sync_lesson() bilinçli olarak bir post_save sinyaline bağlı değil
+        (bkz. lessons/signals.py:sync_lesson docstring'i) çünkü normal akışta
+        (views.py) LessonRecord kaydedilirken bağlı RevisionRecord formseti henüz
+        kaydedilmemiş olur. Admin'de de aynı sıra geçerlidir: save_model() ana
+        LessonRecord'u kaydeder, save_related() ise inline RevisionRecord
+        formsetini kaydeder. Bu yüzden sync_lesson'ı burada -- formset(ler)
+        kaydedildikten SONRA -- çağırmak gerekir; aksi halde admin panelinden
+        yapılan düzenlemeler Hafızlık Haritası/JuzTurCount/Tahmin Motoru'nu
+        senkron dışı bırakır.
+        """
+        super().save_related(request, form, formsets, change)
+        sync_lesson(form.instance)
 
 
 @admin.register(PerformanceHistory)

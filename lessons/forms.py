@@ -36,7 +36,10 @@ class LessonRecordForm(forms.ModelForm):
 
     class Meta:
         model = LessonRecord
-        fields = ["date", "attendance", "ham_juz", "ham_start_page", "ham_end_page", "pismis_done", "quality", "notes"]
+        fields = [
+            "date", "attendance", "ham_juz", "ham_start_page", "ham_end_page",
+            "pismis_done", "pismis_page_count", "quality", "notes",
+        ]
         widgets = {
             "date": ISODateInput(attrs={"class": TAILWIND_INPUT}),
             "attendance": forms.Select(attrs={"class": TAILWIND_INPUT, "id": "id_attendance"}),
@@ -47,6 +50,9 @@ class LessonRecordForm(forms.ModelForm):
                 "class": TAILWIND_INPUT, "min": 1, "max": 20, "id": "id_ham_end_local",
             }),
             "pismis_done": forms.CheckboxInput(attrs={"class": "rounded border-slate-300"}),
+            "pismis_page_count": forms.NumberInput(attrs={
+                "class": TAILWIND_INPUT, "min": 0, "id": "id_pismis_page_count",
+            }),
             "quality": forms.Select(attrs={"class": TAILWIND_INPUT}),
             "notes": forms.Textarea(attrs={"class": TAILWIND_INPUT, "rows": 3}),
         }
@@ -54,6 +60,7 @@ class LessonRecordForm(forms.ModelForm):
             "ham_start_page": "Başlangıç Sayfası (1-20)",
             "ham_end_page": "Bitiş Sayfası (1-20)",
             "pismis_done": "Pişmiş (Ham Arkası Eski Sayfalar) Okundu mu",
+            "pismis_page_count": "Pişmiş Okunan Sayfa Sayısı (isteğe bağlı)",
         }
 
     def __init__(self, *args, **kwargs):

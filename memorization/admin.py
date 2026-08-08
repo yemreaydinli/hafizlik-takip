@@ -28,10 +28,34 @@ class MemorizationPageAdmin(admin.ModelAdmin):
 
 @admin.register(RevisionRecord)
 class RevisionRecordAdmin(admin.ModelAdmin):
-    """Bir ders kaydına bağlı tekrar (has) cüzleri. Genelde ders kaydı ekranından (satır içi) yönetilir."""
+    """Bir ders kaydına bağlı tekrar (has) cüzleri. Genelde ders kaydı ekranından (satır içi) yönetilir.
+
+    Bu ekrandan tek başına (LessonRecord inline'ı dışında) eklenip/silinebildiği
+    için, kaydı ders kaydına bağlayan lessons/signals.py:sync_lesson burada da
+    elle çağrılmalıdır -- aksi halde Hafızlık Haritası/JuzTurCount senkron dışı
+    kalır (bkz. lessons/admin.py:LessonRecordAdmin.save_related ile aynı gerekçe).
+    """
 
     list_display = ("lesson", "juz_label", "start_page", "end_page", "page_count")
     search_fields = ("lesson__student__full_name",)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        from lessons.signals import sync_lesson
+        sync_lesson(obj.lesson)
+
+    def delete_model(self, request, obj):
+        from lessons.signals import sync_lesson
+        lesson = obj.lesson
+        super().delete_model(request, obj)
+        sync_lesson(lesson)
+
+    def delete_queryset(self, request, queryset):
+        from lessons.signals import sync_lesson
+        lessons = {obj.lesson for obj in queryset}
+        super().delete_queryset(request, queryset)
+        for lesson in lessons:
+            sync_lesson(lesson)
 
 
 @admin.register(JuzTurCount)
