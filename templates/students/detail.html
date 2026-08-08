@@ -97,7 +97,7 @@
 
       {% if target_progress %}
         <div class="mt-4 pt-4 border-t border-slate-100">
-          <p class="text-xs text-slate-500 mb-2">Hedefe göre bugün itibarıyla olması gereken: <strong>{{ target_progress.expected_pages_by_now }} sayfa</strong> (~{{ target_progress.expected_juz_by_now }}. Cüz) — gerçekte: <strong>{{ target_progress.actual_pages }} sayfa</strong></p>
+          <p class="text-xs text-slate-500 mb-2">Hedefe göre bugün itibarıyla olması gereken: <strong>{{ target_progress.expected_pages_by_now }} sayfa</strong> (~{{ target_progress.expected_juz_by_now }}. Cüz) — gerçekte pişmiş: <strong>{{ target_progress.actual_pages }} sayfa</strong></p>
           <div class="w-full bg-slate-100 rounded-full h-2.5 mb-2">
             <div class="h-2.5 rounded-full {% if target_progress.target_progress_percent >= 100 %}bg-emerald-500{% elif target_progress.target_progress_percent >= 80 %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width: {{ target_progress.target_progress_percent }}%; max-width: 100%;"></div>
           </div>

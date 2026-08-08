@@ -228,7 +228,17 @@ def calculate_prediction(student, persist=True):
 def calculate_target_progress(student):
     """
     Hedef bitiş tarihine göre "bugün itibarıyla olması gereken" sayfa sayısı ile
-    gerçek ezberlenen (completed + needs_revision) sayfa sayısını karşılaştırır.
+    gerçek PİŞMİŞ (has ile tamamlanmış) sayfa sayısını karşılaştırır.
+
+    ÖNEMLİ (Cüz/Tur/Pişmiş sistemine geçiş sonrası düzeltildi): Bu fonksiyon
+    öncesinde "gerçek ezberlenen" sayıyı ham bazlı (NEEDS_REVISION + COMPLETED)
+    hesaplıyordu -- yani calculate_prediction() ile AYNI kavramsal hatayı
+    taşıyordu (ham'ı bitmiş ama hiç pişmemiş bir sayfayı da "tamamlanmış"
+    sayıyordu). Bu, aynı öğrenci için dashboard'da "hedefin önündesiniz"
+    (ham bazlı) ile "tahmini hafız olma tarihi hedeften sonra" (has bazlı)
+    gibi ÇELİŞKİLİ iki mesaj gösterilmesine yol açıyordu. Artık her iki
+    fonksiyon da aynı tanımı (has ile pişmiş = MemorizationPage.Status.
+    COMPLETED) kullanıyor.
 
     calculate_prediction()'dan farkı: o fonksiyon geçmiş temponun ORTALAMASINI alıp
     ileriye dönük bir tahmin üretir (gün bazlı sapma verir). Bu fonksiyon ise haftalık
@@ -254,8 +264,8 @@ def calculate_target_progress(student):
     elapsed_days = max(0, min((today - student.start_date).days, total_days))
     expected_pages_by_now = round(total_pages * elapsed_days / total_days)
 
-    actual_pages = MemorizationPage.objects.filter(student=student).exclude(
-        status=MemorizationPage.Status.NOT_STUDIED
+    actual_pages = MemorizationPage.objects.filter(
+        student=student, status=MemorizationPage.Status.COMPLETED
     ).count()
 
     pages_ahead_behind = actual_pages - expected_pages_by_now

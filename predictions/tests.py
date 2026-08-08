@@ -163,6 +163,32 @@ class DualPhasePredictionTests(TestCase):
         prediction = calculate_prediction(student, persist=False)
         self.assertEqual(prediction.confidence_level, PredictionHistory.Confidence.LOW)
 
+    def test_ham_finished_has_stalled_returns_gracefully_without_crashing(self):
+        """Regresyon: ham tamamen bitmiş (remaining_ham_pages=0) ama öğrenci
+        uzun süredir hiç has almamışsa (effective_has_pace=0), 'tracks' sözlüğü
+        boş kalır. max(tracks.items()) burada ValueError fırlatmamalı; fonksiyon
+        çökmeden tarihsiz bir tahmin döndürmeli."""
+        student = make_student()
+        make_pages(
+            student,
+            needs_revision_count=100,  # ham bitmiş, has hiç yapılmamış
+            completed_count=settings.TOTAL_QURAN_PAGES - 100,
+        )
+        # daily_revision hep 0 -- öğrenci tekrara hiç başlamamış/uzun süredir bırakmış
+        make_history(student, days=10, daily_memorization=0, daily_revision=0)
+
+        try:
+            prediction = calculate_prediction(student, persist=False)
+        except ValueError as exc:
+            self.fail(f"calculate_prediction ValueError fırlattı: {exc}")
+
+        self.assertIsNotNone(prediction)
+        self.assertEqual(prediction.remaining_ham_pages, 0)
+        self.assertEqual(prediction.remaining_has_pages, 100)
+        self.assertIsNone(prediction.estimated_completion_date)
+        self.assertIsNone(prediction.estimated_remaining_days)
+        self.assertEqual(prediction.bottleneck_phase, "")
+
     def test_persist_updates_same_day_row(self):
         student = make_student()
         make_pages(student, needs_revision_count=10, completed_count=0)
@@ -172,3 +198,49 @@ class DualPhasePredictionTests(TestCase):
         calculate_prediction(student, persist=True)
 
         self.assertEqual(PredictionHistory.objects.filter(student=student).count(), 1)
+
+
+class TargetProgressConsistencyTests(TestCase):
+    """
+    Regresyon: calculate_target_progress() eskiden 'actual_pages'i ham bazlı
+    (NEEDS_REVISION + COMPLETED) hesaplıyordu -- calculate_prediction()'ın
+    düzeltilmesinden ÖNCEKİ hatanın aynısı. Bu, aynı öğrenci için dashboard'da
+    'hedefin önündesiniz' (ham bazlı) ile 'tahmini hafız olma tarihi hedeften
+    sonra' (has bazlı) gibi çelişkili iki mesaj gösterilmesine yol açıyordu.
+    Artık ikisi de has (pişmiş) bazlı; bu testler o tutarlılığı korur.
+    """
+
+    def setUp(self):
+        self.student = make_student()
+        self.student.target_completion_date = date.today() + timedelta(days=100)
+        self.student.start_date = date.today() - timedelta(days=100)
+        self.student.save()
+
+    def test_actual_pages_counts_only_completed_has_not_ham_only(self):
+        from .services import calculate_target_progress
+
+        # 50 sayfa ham yapılmış ama HENÜZ PİŞMEMİŞ (NEEDS_REVISION),
+        # 10 sayfa gerçekten pişmiş (COMPLETED).
+        make_pages(self.student, needs_revision_count=50, completed_count=10)
+
+        progress = calculate_target_progress(self.student)
+        self.assertIsNotNone(progress)
+        # Eski (hatalı) davranışta actual_pages 60 olurdu (50+10); artık
+        # sadece pişmiş olan 10 sayılmalı.
+        self.assertEqual(progress["actual_pages"], 10)
+
+    def test_target_progress_consistent_with_prediction_bottleneck(self):
+        """Öğrenci ham'da ileride ama has'ta geride olduğunda, hedef sapması
+        göstergesi de bunu 'geride' olarak yansıtmalı -- tahmin motoruyla
+        aynı yönde konuşmalı, birbirine zıt mesaj vermemeli."""
+        from .services import calculate_target_progress
+
+        # Neredeyse tüm ham bitmiş (ilerideymiş gibi görünür) ama has'ın
+        # büyük kısmı hâlâ pişmemiş.
+        make_pages(self.student, needs_revision_count=550, completed_count=10)
+
+        progress = calculate_target_progress(self.student)
+        # elapsed_days=100/total_days=200 -> expected_pages_by_now = 302
+        # actual_pages (has bazlı) = 10 -> ciddi şekilde geride olmalı.
+        self.assertLess(progress["actual_pages"], progress["expected_pages_by_now"])
+        self.assertLess(progress["pages_ahead_behind"], 0)
