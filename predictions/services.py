@@ -124,6 +124,7 @@ def calculate_prediction(student, persist=True):
     else:
         prediction = PredictionHistory(
             student=student,
+            calculated_date=today,
             estimated_completion_date=estimated_completion_date,
             estimated_remaining_days=estimated_remaining_days,
             confidence_level=confidence,

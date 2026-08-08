@@ -10,6 +10,7 @@ from django.views.generic import ListView
 
 from core.quran import TOTAL_JUZ, juz_page_count
 from students.models import Student
+from memorization.services import get_juz_next_ham_pages
 from .forms import LessonRecordForm, RevisionRecordFormSet
 from .models import LessonRecord
 from .signals import sync_lesson
@@ -24,6 +25,15 @@ def _scoped_students(user):
 def _juz_page_counts_json():
     """Şablonda cüz seçildiğinde 'cüz içi sayfa' alanının üst sınırını göstermek için."""
     return json.dumps({str(j): juz_page_count(j) for j in range(1, TOTAL_JUZ + 1)})
+
+
+def _juz_next_ham_pages_json(student):
+    """
+    Şablonda hoca bir cüz seçtiğinde, o öğrencinin bu cüzde daha önce nereye kadar
+    ham (yeni ezber) aldığına bakarak bir sonraki sayfayı otomatik önermek için.
+    Sadece bir öneridir; hoca formda dilediği gibi değiştirebilir.
+    """
+    return json.dumps({str(j): v for j, v in get_juz_next_ham_pages(student).items()})
 
 
 class LessonListView(LoginRequiredMixin, ListView):
@@ -75,6 +85,7 @@ def lesson_create(request, student_pk):
     return render(request, "lessons/form.html", {
         "form": form, "formset": formset, "student": student,
         "juz_page_counts_json": _juz_page_counts_json(),
+        "juz_next_ham_pages_json": _juz_next_ham_pages_json(student),
     })
 
 
@@ -114,6 +125,7 @@ def lesson_update(request, pk):
     return render(request, "lessons/form.html", {
         "form": form, "formset": formset, "student": lesson.student, "lesson": lesson,
         "juz_page_counts_json": _juz_page_counts_json(),
+        "juz_next_ham_pages_json": _juz_next_ham_pages_json(lesson.student),
     })
 
 

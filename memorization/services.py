@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone
-from core.quran import TOTAL_JUZ, juz_page_range, juz_of_page
+from core.quran import TOTAL_JUZ, juz_page_range, juz_of_page, absolute_to_local_page, juz_page_count
 from .models import MemorizationPage, JuzTurCount
 
 
@@ -73,6 +73,50 @@ def get_juz_progress_summary(student):
         "needs_revision_juz": needs_revision,
         "not_studied_juz": TOTAL_JUZ - completed - needs_revision,
     }
+
+
+def get_juz_next_ham_pages(student):
+    """
+    Her cüz için, öğrencinin o cüzde daha önce ham (yeni ezber) olarak verilmiş
+    en son (en ileri) yerel sayfasına bakarak bir sonraki ders için önerilen
+    başlangıç/bitiş sayfasını (cüz içi yerel sayfa numarası) hesaplar.
+
+    Örn: öğrenciye bu cüzden daha önce en son 16. sayfaya kadar ders verilmişse,
+    önerilen sayfa 17'dir. Bu fonksiyon salt bir ÖNERİDİR; hoca formda dilediği
+    gibi değiştirebilir, sistem hiçbir şeyi zorunlu kılmaz.
+
+    Dönüş: {juz_number: {"suggested_page": int|None, "last_local_page": int|None}}
+    - suggested_page None ise: cüzün tamamı (1..juz_page_count) zaten ham olarak
+      verilmiş demektir; yeni sayfa önerilecek bir şey kalmamıştır (sadece has/tekrar
+      girilebilir).
+    """
+    from lessons.models import LessonRecord
+
+    furthest_local = {}
+    lessons = LessonRecord.objects.filter(
+        student=student, ham_start_page__isnull=False, ham_end_page__isnull=False
+    ).values("ham_start_page", "ham_end_page")
+    for l in lessons:
+        j = juz_of_page(l["ham_start_page"])
+        if not j:
+            continue
+        local_end = absolute_to_local_page(l["ham_end_page"])
+        if local_end is None:
+            continue
+        if j not in furthest_local or local_end > furthest_local[j]:
+            furthest_local[j] = local_end
+
+    suggestions = {}
+    for juz_number in range(1, TOTAL_JUZ + 1):
+        max_local = juz_page_count(juz_number)
+        last_local = furthest_local.get(juz_number)
+        if last_local is None:
+            suggestions[juz_number] = {"suggested_page": 1, "last_local_page": None}
+        elif last_local >= max_local:
+            suggestions[juz_number] = {"suggested_page": None, "last_local_page": last_local}
+        else:
+            suggestions[juz_number] = {"suggested_page": last_local + 1, "last_local_page": last_local}
+    return suggestions
 
 
 def bulk_apply_range(student, start_page, end_page, status):

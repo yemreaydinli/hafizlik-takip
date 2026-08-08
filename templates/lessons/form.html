@@ -28,6 +28,7 @@
         <div>
           <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_juz.label }}</label>
           {{ form.ham_juz }}
+          <p class="text-xs text-emerald-600 mt-1 font-medium" id="ham-juz-suggestion-hint"></p>
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_start_page.label }}</label>
@@ -87,6 +88,12 @@
   // core.quran.juz_page_count ile birebir aynı mantık, sadece istemci tarafı ipucu içindir.
   const JUZ_PAGE_COUNTS = {{ juz_page_counts_json|safe }};
 
+  // Öğrencinin her cüzde daha önce ham (yeni ezber) olarak en son hangi sayfaya kadar
+  // ders aldığı — sunucuda memorization.services.get_juz_next_ham_pages ile hesaplanır.
+  // Hoca cüz seçtiğinde başlangıç/bitiş sayfaları bu öneriyle otomatik doldurulur;
+  // hoca dilerse her zaman elle değiştirebilir.
+  const JUZ_NEXT_HAM_PAGES = {{ juz_next_ham_pages_json|safe }};
+
   // Devam durumu "Gelmedi" ise ham/tekrar alanlarını gizle
   const attendanceSelect = document.getElementById('id_attendance');
   const hamFields = document.getElementById('ham-fields');
@@ -102,23 +109,49 @@
     toggleHamFields();
   }
 
-  // Seçilen cüze göre "cüz içi sayfa" alanlarının üst sınırını ve ipucunu güncelle.
+  // Seçilen cüze göre "cüz içi sayfa" alanlarının üst sınırını, ipucunu ve
+  // otomatik sayfa önerisini günceller. `prefill=true` iken (hoca cüzü elle
+  // DEĞİŞTİRDİĞİNDE) başlangıç/bitiş kutularını öneriyle otomatik doldurur;
+  // sayfa ilk açıldığında (düzenleme ekranında zaten dolu değerler varsa)
+  // sadece bilgi metnini gösterir, mevcut değerlere dokunmaz.
   const hamJuzSelect = document.getElementById('id_ham_juz');
   const hamStartInput = document.getElementById('id_ham_start_local');
   const hamEndInput = document.getElementById('id_ham_end_local');
   const hamStartHint = document.getElementById('ham-start-hint');
   const hamEndHint = document.getElementById('ham-end-hint');
-  function updateHamPageBounds() {
+  const hamSuggestionHint = document.getElementById('ham-juz-suggestion-hint');
+
+  function updateHamPageBounds(prefill) {
     const juz = hamJuzSelect ? hamJuzSelect.value : '';
     const maxPage = juz && JUZ_PAGE_COUNTS[juz] ? JUZ_PAGE_COUNTS[juz] : 20;
     const hint = juz ? `1-${maxPage}. sayfa arası` : 'Önce cüz seçin';
     [hamStartInput, hamEndInput].forEach(el => { if (el) { el.max = maxPage; el.min = 1; } });
     if (hamStartHint) hamStartHint.textContent = hint;
     if (hamEndHint) hamEndHint.textContent = hint;
+
+    if (!hamSuggestionHint) return;
+    if (!juz || !JUZ_NEXT_HAM_PAGES[juz]) {
+      hamSuggestionHint.textContent = '';
+      return;
+    }
+    const info = JUZ_NEXT_HAM_PAGES[juz];
+    if (info.suggested_page === null) {
+      hamSuggestionHint.textContent = `Bu cüzün tamamı (1-${maxPage}. sayfa) daha önce ham olarak verilmiş — yeni sayfa kalmadı, sadece tekrar (has) girebilirsiniz.`;
+      if (prefill) { hamStartInput.value = ''; hamEndInput.value = ''; }
+    } else if (info.last_local_page) {
+      hamSuggestionHint.textContent = `Bu cüzde daha önce ${info.last_local_page}. sayfaya kadar ders verilmiş — önerilen: ${info.suggested_page}. sayfadan devam.`;
+      if (prefill) { hamStartInput.value = info.suggested_page; hamEndInput.value = info.suggested_page; }
+    } else {
+      hamSuggestionHint.textContent = `Bu cüzden ilk kez ders veriliyor — önerilen: 1. sayfadan başlayın.`;
+      if (prefill) { hamStartInput.value = info.suggested_page; hamEndInput.value = info.suggested_page; }
+    }
   }
   if (hamJuzSelect) {
-    hamJuzSelect.addEventListener('change', updateHamPageBounds);
-    updateHamPageBounds();
+    // Hoca cüzü elle değiştirdiğinde: sayfa kutularını öneriyle otomatik doldur.
+    hamJuzSelect.addEventListener('change', () => updateHamPageBounds(true));
+    // Sayfa ilk açıldığında: sadece sınır/bilgi metnini göster, mevcut değerlere dokunma
+    // (örn. düzenleme ekranında zaten girilmiş bir ders varsa değerleri ezmesin).
+    updateHamPageBounds(false);
   }
 
   // Yeni tekrar (has) satırı ekleme (Django formset TOTAL_FORMS güncellemesiyle)
