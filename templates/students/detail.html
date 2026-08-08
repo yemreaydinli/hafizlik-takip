@@ -94,6 +94,27 @@
       {% else %}
         <p class="text-sm text-slate-400">Tahmin için henüz yeterli veri yok.</p>
       {% endif %}
+
+      {% if target_progress %}
+        <div class="mt-4 pt-4 border-t border-slate-100">
+          <p class="text-xs text-slate-500 mb-2">Hedefe göre bugün itibarıyla olması gereken: <strong>{{ target_progress.expected_pages_by_now }} sayfa</strong> (~{{ target_progress.expected_juz_by_now }}. Cüz) — gerçekte: <strong>{{ target_progress.actual_pages }} sayfa</strong></p>
+          <div class="w-full bg-slate-100 rounded-full h-2.5 mb-2">
+            <div class="h-2.5 rounded-full {% if target_progress.target_progress_percent >= 100 %}bg-emerald-500{% elif target_progress.target_progress_percent >= 80 %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width: {{ target_progress.target_progress_percent }}%; max-width: 100%;"></div>
+          </div>
+          {% if target_progress.pages_ahead_behind > 0 %}
+            <div class="bg-emerald-50 text-emerald-700 text-sm rounded-lg px-3 py-2">🚀 Hedeften <strong>{{ target_progress.pages_ahead_behind_abs }} sayfa</strong> önde (%{{ target_progress.target_progress_percent }} hedef ilerlemesi).</div>
+          {% elif target_progress.pages_ahead_behind < 0 %}
+            <div class="bg-amber-50 text-amber-700 text-sm rounded-lg px-3 py-2">⏰ Hedeften <strong>{{ target_progress.pages_ahead_behind_abs }} sayfa</strong> geride (%{{ target_progress.target_progress_percent }} hedef ilerlemesi).</div>
+          {% else %}
+            <div class="bg-slate-50 text-slate-600 text-sm rounded-lg px-3 py-2">Sayfa bazında tam hedefte gidiyor.</div>
+          {% endif %}
+          {% if target_progress.target_date_passed %}
+            <p class="text-xs text-rose-600 mt-2">⚠️ Hedef tarih geçti, {{ target_progress.remaining_pages }} sayfa kaldı.</p>
+          {% elif target_progress.required_weekly_pace %}
+            <p class="text-xs text-slate-500 mt-2">Hedefte kalmak için bundan sonra haftada ortalama <strong>{{ target_progress.required_weekly_pace }} sayfa</strong> gerekiyor ({{ target_progress.remaining_pages }} sayfa / {{ target_progress.remaining_days }} gün kaldı).</p>
+          {% endif %}
+        </div>
+      {% endif %}
     {% else %}
       <p class="text-sm text-slate-400">Bu öğrenci için hedef tarih belirlenmemiş. <a href="{% url 'students:update' student.pk %}" class="text-brand-700 hover:underline">Şimdi ekle</a></p>
     {% endif %}

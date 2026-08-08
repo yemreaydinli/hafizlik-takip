@@ -6,7 +6,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -58,17 +58,41 @@ def _table_style(extra=None):
     return TableStyle(base)
 
 
+# Çok sütunlu raporlarda (ör. hedef ilerleme sütunları eklenince) hücrelerin
+# sayfa dışına taşmaması için başlık/hücre metinlerini Paragraph içine alıp
+# satır kaydırmalı (word-wrap) hale getiriyoruz.
+_HEADER_CELL_STYLE = ParagraphStyle(
+    "TableHeaderCell", fontName=FONT_BOLD, fontSize=7.5, leading=9, textColor=colors.white,
+)
+_BODY_CELL_STYLE = ParagraphStyle(
+    "TableBodyCell", fontName=FONT_REGULAR, fontSize=7.5, leading=9,
+)
+
+
 def build_pdf_table(title, headers, rows, subtitle=None):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=1.5 * cm, bottomMargin=1.5 * cm)
+    left_margin = right_margin = 1 * cm
+    doc = SimpleDocTemplate(
+        buffer, pagesize=landscape(A4), topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+        leftMargin=left_margin, rightMargin=right_margin,
+    )
     styles = _tr_styles()
     elements = [Paragraph(title, styles["Title"])]
     if subtitle:
         elements.append(Paragraph(subtitle, styles["Normal"]))
     elements.append(Spacer(1, 0.5 * cm))
 
-    data = [headers] + rows if rows else [headers, ["Kayıt bulunamadı"] + [""] * (len(headers) - 1)]
-    table = Table(data, repeatRows=1)
+    raw_rows = rows if rows else [["Kayıt bulunamadı"] + [""] * (len(headers) - 1)]
+    header_row = [Paragraph(str(h), _HEADER_CELL_STYLE) for h in headers]
+    body_rows = [
+        [Paragraph("-" if v in (None, "") else str(v), _BODY_CELL_STYLE) for v in row]
+        for row in raw_rows
+    ]
+    data = [header_row] + body_rows
+
+    available_width = landscape(A4)[0] - left_margin - right_margin
+    col_width = available_width / len(headers)
+    table = Table(data, colWidths=[col_width] * len(headers), repeatRows=1)
     table.setStyle(_table_style())
     elements.append(table)
     doc.build(elements)
@@ -133,17 +157,32 @@ def attendance_rows_and_headers(students):
 
 def progress_rows_and_headers(students):
     from memorization.services import get_progress_summary, get_juz_progress_summary
-    headers = ["Öğrenci", "Tamamlanan Cüz", "Tekrar Bekleyen Cüz", "Çalışılmamış Cüz", "İlerleme (%)"]
+    from predictions.services import calculate_target_progress
+    headers = [
+        "Öğrenci", "Tamamlanan Cüz", "Tekrar Bekleyen Cüz", "Çalışılmamış Cüz", "İlerleme (%)",
+        "Hedef Tarih", "Hedefe Göre Beklenen (Sayfa)", "Hedef İlerleme (%)", "Gereken Haftalık Tempo (Sayfa)",
+    ]
     rows = []
     for s in students:
         summary = get_progress_summary(s)
         juz_summary = get_juz_progress_summary(s)
+        target = calculate_target_progress(s)
+        if target:
+            target_cols = [
+                s.target_completion_date.strftime("%d.%m.%Y"),
+                target["expected_pages_by_now"],
+                f"%{target['target_progress_percent']}",
+                target["required_weekly_pace"] if target["required_weekly_pace"] is not None else "-",
+            ]
+        else:
+            target_cols = ["-", "-", "-", "-"]
         rows.append([
             s.full_name,
             f"{juz_summary['completed_juz']} / {juz_summary['total_juz']}",
             juz_summary["needs_revision_juz"],
             juz_summary["not_studied_juz"],
             summary["progress_percent"],
+            *target_cols,
         ])
     return headers, rows
 
@@ -170,6 +209,7 @@ def build_student_report_card_pdf(student):
     from memorization.services import get_progress_summary, get_juz_progress_summary
     from lessons.services import get_attendance_summary
     from lessons.models import LessonRecord
+    from predictions.services import calculate_target_progress
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5 * cm, bottomMargin=1.5 * cm)
@@ -206,6 +246,24 @@ def build_student_report_card_pdf(student):
             ["Tahmini Kalan Gün", str(prediction.estimated_remaining_days)],
             ["Tahmin Güven Seviyesi", prediction.get_confidence_level_display()],
         ]
+
+    target_progress = calculate_target_progress(student)
+    if target_progress:
+        summary_rows += [
+            ["Hedef Bitiş Tarihi", student.target_completion_date.strftime("%d.%m.%Y")],
+            ["Hedefe Göre Bugün Olması Gereken", f"{target_progress['expected_pages_by_now']} sayfa (~{target_progress['expected_juz_by_now']}. Cüz)"],
+            ["Hedefe Göre İlerleme", f"%{target_progress['target_progress_percent']}"],
+            [
+                "Hedeften Fark",
+                (f"{target_progress['pages_ahead_behind_abs']} sayfa önde" if target_progress["pages_ahead_behind"] > 0
+                 else f"{target_progress['pages_ahead_behind_abs']} sayfa geride" if target_progress["pages_ahead_behind"] < 0
+                 else "Tam hedefte"),
+            ],
+        ]
+        if target_progress["target_date_passed"]:
+            summary_rows.append(["Uyarı", f"Hedef tarih geçti, {target_progress['remaining_pages']} sayfa kaldı"])
+        elif target_progress["required_weekly_pace"] is not None:
+            summary_rows.append(["Hedefte Kalmak İçin Gereken Tempo", f"Haftada {target_progress['required_weekly_pace']} sayfa"])
 
     summary_table = Table([summary_headers] + summary_rows, colWidths=[8 * cm, 8 * cm])
     summary_table.setStyle(_table_style([("FONTSIZE", (0, 0), (-1, -1), 9)]))
