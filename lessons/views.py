@@ -11,7 +11,7 @@ from django.views.generic import ListView
 
 from core.quran import TOTAL_JUZ, juz_page_count
 from students.models import Student
-from memorization.services import get_juz_next_ham_pages
+from memorization.services import get_juz_next_ham_pages, is_juz_ham_covered
 from .forms import LessonRecordForm, RevisionRecordFormSet
 from .models import LessonRecord
 from .signals import sync_lesson
@@ -35,6 +35,44 @@ def _juz_next_ham_pages_json(student):
     Sadece bir öneridir; hoca formda dilediği gibi değiştirebilir.
     """
     return json.dumps({str(j): v for j, v in get_juz_next_ham_pages(student).items()})
+
+
+def _validate_ham_coverage_for_revisions(student, form, formset, exclude_lesson_id=None):
+    """
+    Formset kaydedilmeden ÖNCE, seçilen her has (tekrar) cüzünün ham'ı gerçekten
+    tamamlanmış mı diye kontrol eder ve eksikse formset'e hata ekler.
+
+    NEDEN: Has girişi tek bir cüz seçilerek yapılıyor (bkz. lessons/forms.py:
+    RevisionRecordForm) ve bu, cüzün TAMAMEN ham'ı yapılmış olduğunu varsayar.
+    Bu varsayımın kendisi doğru (has gerçekten tek seferde, tam cüz olarak
+    veriliyor) -- burada değiştirilen bu değil. Ama hoca yanlışlıkla (örn.
+    açılır listeden yanlış cüzü seçerek) henüz ham'ı hiç/tam yapılmamış bir
+    cüzü "tekrar edildi" olarak işaretlerse, sistem sessizce o sayfaları
+    "pişmiş" sayar (bkz. memorization/services.py:is_juz_ham_covered
+    docstring'i). Bu fonksiyon SADECE kaydetmeden önce bu tutarsızlığı
+    yakalar; "tek cüz has verme" arayüzüne dokunmaz.
+
+    Dönüş: True (kaydedilebilir) / False (formset'e hata eklendi, kaydetme).
+    """
+    current_ham_range = (form.cleaned_data.get("ham_start_page"), form.cleaned_data.get("ham_end_page"))
+    is_valid = True
+    for revision_form in formset.forms:
+        if not revision_form.cleaned_data or revision_form.cleaned_data.get("DELETE"):
+            continue
+        juz_value = revision_form.cleaned_data.get("juz_number")
+        if not juz_value:
+            continue
+        juz_number = int(juz_value)
+        if not is_juz_ham_covered(
+            student, juz_number, extra_ranges=[current_ham_range], exclude_lesson_id=exclude_lesson_id
+        ):
+            revision_form.add_error(
+                "juz_number",
+                f"{juz_number}. Cüz için ham (yeni ezber) henüz tamamlanmamış. "
+                "Has (tekrar) girmeden önce bu cüzün tüm sayfalarının ham'ı tamamlanmış olmalı.",
+            )
+            is_valid = False
+    return is_valid
 
 
 class LessonListView(LoginRequiredMixin, ListView):
@@ -75,7 +113,7 @@ def lesson_create(request, student_pk):
         # kaydedilmez -- form.is_valid() doğruysa bile formset geçersizse artık
         # yarım (tekrar bilgisi eksik) bir LessonRecord veritabanında kalmaz.
         formset = RevisionRecordFormSet(request.POST, instance=instance)
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and formset.is_valid() and _validate_ham_coverage_for_revisions(student, form, formset):
             with transaction.atomic():
                 lesson = form.save()
                 formset.instance = lesson
@@ -118,7 +156,9 @@ def lesson_update(request, pk):
     if request.method == "POST":
         form = LessonRecordForm(request.POST, instance=lesson)
         formset = RevisionRecordFormSet(request.POST, instance=lesson)
-        if form.is_valid() and formset.is_valid():
+        if form.is_valid() and formset.is_valid() and _validate_ham_coverage_for_revisions(
+            lesson.student, form, formset, exclude_lesson_id=lesson.pk
+        ):
             with transaction.atomic():
                 form.save()
                 formset.save()

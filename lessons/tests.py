@@ -343,3 +343,128 @@ class PismisPageCountTests(TestCase):
         )
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["pismis_page_count"], 4)
+
+
+class HamCoverageGuardTests(TestCase):
+    """
+    lessons/views.py:_validate_ham_coverage_for_revisions() view-seviyesi
+    testleri. Has (tekrar) girişi hâlâ tek bir cüz seçilerek yapılıyor
+    (arayüz değiştirilmedi) -- bu testler sadece, ham'ı tamamlanmamış bir
+    cüz için has girilmeye çalışıldığında kaydın ENGELLENDİĞİNİ ve
+    tamamlanmış bir cüz için normal şekilde kaydedildiğini doğrular.
+    """
+
+    def setUp(self):
+        self.teacher, self.student = make_teacher_and_student()
+        self.client = Client()
+        self.client.force_login(self.teacher)
+
+    def _lesson_post_data(self, **overrides):
+        data = {
+            "date": date.today().isoformat(),
+            "attendance": LessonRecord.Attendance.PRESENT,
+            "ham_juz": "",
+            "ham_start_page": "",
+            "ham_end_page": "",
+            "pismis_done": "",
+            "pismis_page_count": "",
+            "quality": "",
+            "notes": "",
+            "revision_ranges-TOTAL_FORMS": "1",
+            "revision_ranges-INITIAL_FORMS": "0",
+            "revision_ranges-MIN_NUM_FORMS": "0",
+            "revision_ranges-MAX_NUM_FORMS": "1000",
+            "revision_ranges-0-juz_number": "",
+            "revision_ranges-0-start_page": "",
+            "revision_ranges-0-end_page": "",
+            "revision_ranges-0-id": "",
+            "revision_ranges-0-lesson": "",
+        }
+        data.update(overrides)
+        return data
+
+    def test_has_blocked_when_juz_ham_never_entered(self):
+        data = self._lesson_post_data(**{"revision_ranges-0-juz_number": "5"})
+        response = self.client.post(
+            reverse("lessons:create", kwargs={"student_pk": self.student.pk}), data
+        )
+        # Kaydedilmemeli -- formla aynı sayfada 200 dönmeli (redirect yok).
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(LessonRecord.objects.filter(student=self.student).exists())
+        self.assertIn(
+            "ham",
+            "".join(response.context["formset"].forms[0].errors.get("juz_number", [])).lower(),
+        )
+
+    def test_has_blocked_when_juz_ham_only_partially_entered(self):
+        start, _ = juz_page_range(5)
+        LessonRecord.objects.create(
+            student=self.student, date=date.today() - timedelta(days=3),
+            ham_start_page=start, ham_end_page=start + 9,  # cüzün sadece yarısı
+        )
+        data = self._lesson_post_data(**{"revision_ranges-0-juz_number": "5"})
+        response = self.client.post(
+            reverse("lessons:create", kwargs={"student_pk": self.student.pk}), data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(LessonRecord.objects.filter(student=self.student, date=date.today()).exists())
+
+    def test_has_allowed_when_juz_ham_fully_covered_from_prior_lesson(self):
+        start, end = juz_page_range(5)
+        LessonRecord.objects.create(
+            student=self.student, date=date.today() - timedelta(days=3),
+            ham_start_page=start, ham_end_page=end,
+        )
+        data = self._lesson_post_data(**{"revision_ranges-0-juz_number": "5"})
+        response = self.client.post(
+            reverse("lessons:create", kwargs={"student_pk": self.student.pk}), data
+        )
+        self.assertEqual(response.status_code, 302)
+        lesson = LessonRecord.objects.get(student=self.student, date=date.today())
+        self.assertTrue(RevisionRecord.objects.filter(lesson=lesson).exists())
+
+    def test_has_allowed_when_ham_completes_juz_in_same_submission(self):
+        """Aynı dersin ham'ı, cüzün son eksik parçasını tamamlıyorsa (aynı
+        gönderimde), has girişi de kabul edilmeli."""
+        juz = 6
+        start, end = juz_page_range(juz)
+        LessonRecord.objects.create(
+            student=self.student, date=date.today() - timedelta(days=1),
+            ham_start_page=start, ham_end_page=end - 1,  # son sayfa hariç
+        )
+        from core.quran import absolute_to_local_page
+        data = self._lesson_post_data(**{
+            "ham_juz": str(juz),
+            "ham_start_page": str(absolute_to_local_page(end)),
+            "ham_end_page": str(absolute_to_local_page(end)),
+            "revision_ranges-0-juz_number": str(juz),
+        })
+        response = self.client.post(
+            reverse("lessons:create", kwargs={"student_pk": self.student.pk}), data
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_editing_lesson_does_not_falsely_block_its_own_prior_has(self):
+        """Zaten kayıtlı, geçerli bir has kaydını (ham'ı tam olan bir cüz için)
+        düzenlerken exclude_lesson_id yanlış pozitif üretmemeli."""
+        start, end = juz_page_range(7)
+        ham_lesson = LessonRecord.objects.create(
+            student=self.student, date=date.today() - timedelta(days=5),
+            ham_start_page=start, ham_end_page=end,
+        )
+        has_lesson = LessonRecord.objects.create(
+            student=self.student, date=date.today() - timedelta(days=1),
+        )
+        RevisionRecord.objects.create(lesson=has_lesson, start_page=start, end_page=end)
+
+        data = self._lesson_post_data(
+            date=has_lesson.date.isoformat(),
+            **{
+                "revision_ranges-INITIAL_FORMS": "1",
+                "revision_ranges-0-juz_number": "7",
+                "revision_ranges-0-id": str(RevisionRecord.objects.get(lesson=has_lesson).pk),
+                "revision_ranges-0-lesson": str(has_lesson.pk),
+            },
+        )
+        response = self.client.post(reverse("lessons:update", kwargs={"pk": has_lesson.pk}), data)
+        self.assertEqual(response.status_code, 302)

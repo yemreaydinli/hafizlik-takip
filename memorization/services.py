@@ -75,6 +75,64 @@ def get_juz_progress_summary(student):
     }
 
 
+def is_juz_ham_covered(student, juz_number, extra_ranges=(), exclude_lesson_id=None):
+    """
+    Bir cüzün TÜM sayfalarının en az bir kez ham (yeni ezber) olarak ders
+    kaydına girilip girilmediğini kontrol eder.
+
+    NEDEN: Has (tekrar) girişi kullanıcı arayüzünde tek bir cüz seçilerek
+    yapılıyor (bkz. lessons/forms.py:RevisionRecordForm) -- bu, cüzün TAMAMININ
+    o oturumda tekrar edildiğini varsayar. Bu varsayımın kendisi doğru ve
+    değiştirilmedi (has gerçekten tek seferde, tam cüz olarak veriliyor).
+    Ancak bu formda hiçbir kontrol olmadan hoca YANLIŞLIKLA (örn. açılır
+    listeden yanlış cüzü seçerek) henüz ham'ı hiç/tam yapılmamış bir cüzü
+    "tekrar edildi" olarak işaretleyebilir. Bunun sonucu sessiz ama ciddidir:
+    lessons/signals.py:recompute_student_memorization() bu durumda ilgili
+    sayfaları ham hiç yapılmamış olsa bile doğrudan COMPLETED (pişmiş/yeşil)
+    işaretler -- hem Hafızlık Haritası hem JuzTurCount hem de Akıllı Tahmin
+    Motoru'nun "kalan ham/has sayfa" sayıları bozulur. Bu fonksiyon, "tek cüz
+    has verme" arayüzünü DEĞİŞTİRMEDEN, kaydetmeden önce bu tutarsızlığı
+    yakalayıp engellemek için kullanılır (bkz. lessons/views.py).
+
+    extra_ranges: henüz veritabanına kaydedilmemiş, aynı form gönderiminde
+    girilen ek ham aralıkları -- (mutlak_başlangıç, mutlak_bitiş) çiftleri.
+    Böylece "bu dersin ham'ı + bu dersteki has aynı cüz" gibi tek oturumluk
+    girişler de doğru değerlendirilir.
+
+    exclude_lesson_id: bir ders kaydı DÜZENLENİRKEN, o dersin veritabanındaki
+    ESKİ (henüz kaydedilmemiş değişiklikten önceki) ham aralığının iki kez
+    sayılmasını/yanıltmasını önlemek için o dersin id'si dışarıda bırakılır;
+    güncel değeri zaten extra_ranges ile ayrıca geçirilmelidir.
+    """
+    start, end = juz_page_range(juz_number)
+    covered = set()
+
+    from lessons.models import LessonRecord
+
+    qs = LessonRecord.objects.filter(
+        student=student, ham_start_page__isnull=False, ham_end_page__isnull=False,
+        ham_start_page__lte=end, ham_end_page__gte=start,
+    )
+    if exclude_lesson_id:
+        qs = qs.exclude(pk=exclude_lesson_id)
+    qs = qs.values_list("ham_start_page", "ham_end_page")
+
+    for h_start, h_end in qs:
+        for page_no in range(max(h_start, start), min(h_end, end) + 1):
+            covered.add(page_no)
+
+    for extra in extra_ranges:
+        if not extra:
+            continue
+        e_start, e_end = extra
+        if e_start is None or e_end is None:
+            continue
+        for page_no in range(max(e_start, start), min(e_end, end) + 1):
+            covered.add(page_no)
+
+    return len(covered) == (end - start + 1)
+
+
 def get_juz_next_ham_pages(student):
     """
     Her cüz için, öğrencinin o cüzde daha önce ham (yeni ezber) olarak verilmiş
