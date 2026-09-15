@@ -37,7 +37,7 @@ def _juz_next_ham_pages_json(student):
     return json.dumps({str(j): v for j, v in get_juz_next_ham_pages(student).items()})
 
 
-def _validate_ham_coverage_for_revisions(student, form, formset, exclude_lesson_id=None):
+def _validate_ham_coverage_for_revisions(student, form, formset):
     """
     Formset kaydedilmeden ÖNCE, seçilen her has (tekrar) cüzünün ham'ı gerçekten
     tamamlanmış mı diye kontrol eder ve eksikse formset'e hata ekler.
@@ -49,8 +49,12 @@ def _validate_ham_coverage_for_revisions(student, form, formset, exclude_lesson_
     açılır listeden yanlış cüzü seçerek) henüz ham'ı hiç/tam yapılmamış bir
     cüzü "tekrar edildi" olarak işaretlerse, sistem sessizce o sayfaları
     "pişmiş" sayar (bkz. memorization/services.py:is_juz_ham_covered
-    docstring'i). Bu fonksiyon SADECE kaydetmeden önce bu tutarsızlığı
-    yakalar; "tek cüz has verme" arayüzüne dokunmaz.
+    docstring'i). "Ham yapılmış" bilgisi MemorizationPage.status üzerinden
+    okunduğu için (bkz. is_juz_ham_covered), Başlangıç Durumu Aktarımı ile
+    önceden toplu işaretlenmiş öğrenciler için de doğru çalışır -- ayrı bir
+    "bu dersi hariç tut" mantığına gerek kalmaz. Bu fonksiyon SADECE
+    kaydetmeden önce bu tutarsızlığı yakalar; "tek cüz has verme" arayüzüne
+    dokunmaz.
 
     Dönüş: True (kaydedilebilir) / False (formset'e hata eklendi, kaydetme).
     """
@@ -63,9 +67,7 @@ def _validate_ham_coverage_for_revisions(student, form, formset, exclude_lesson_
         if not juz_value:
             continue
         juz_number = int(juz_value)
-        if not is_juz_ham_covered(
-            student, juz_number, extra_ranges=[current_ham_range], exclude_lesson_id=exclude_lesson_id
-        ):
+        if not is_juz_ham_covered(student, juz_number, extra_ranges=[current_ham_range]):
             revision_form.add_error(
                 "juz_number",
                 f"{juz_number}. Cüz için ham (yeni ezber) henüz tamamlanmamış. "
@@ -157,7 +159,7 @@ def lesson_update(request, pk):
         form = LessonRecordForm(request.POST, instance=lesson)
         formset = RevisionRecordFormSet(request.POST, instance=lesson)
         if form.is_valid() and formset.is_valid() and _validate_ham_coverage_for_revisions(
-            lesson.student, form, formset, exclude_lesson_id=lesson.pk
+            lesson.student, form, formset
         ):
             with transaction.atomic():
                 form.save()

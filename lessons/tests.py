@@ -398,10 +398,11 @@ class HamCoverageGuardTests(TestCase):
 
     def test_has_blocked_when_juz_ham_only_partially_entered(self):
         start, _ = juz_page_range(5)
-        LessonRecord.objects.create(
+        lesson = LessonRecord.objects.create(
             student=self.student, date=date.today() - timedelta(days=3),
             ham_start_page=start, ham_end_page=start + 9,  # cüzün sadece yarısı
         )
+        sync_lesson(lesson)
         data = self._lesson_post_data(**{"revision_ranges-0-juz_number": "5"})
         response = self.client.post(
             reverse("lessons:create", kwargs={"student_pk": self.student.pk}), data
@@ -411,10 +412,11 @@ class HamCoverageGuardTests(TestCase):
 
     def test_has_allowed_when_juz_ham_fully_covered_from_prior_lesson(self):
         start, end = juz_page_range(5)
-        LessonRecord.objects.create(
+        lesson = LessonRecord.objects.create(
             student=self.student, date=date.today() - timedelta(days=3),
             ham_start_page=start, ham_end_page=end,
         )
+        sync_lesson(lesson)
         data = self._lesson_post_data(**{"revision_ranges-0-juz_number": "5"})
         response = self.client.post(
             reverse("lessons:create", kwargs={"student_pk": self.student.pk}), data
@@ -423,15 +425,37 @@ class HamCoverageGuardTests(TestCase):
         lesson = LessonRecord.objects.get(student=self.student, date=date.today())
         self.assertTrue(RevisionRecord.objects.filter(lesson=lesson).exists())
 
+    def test_has_allowed_when_juz_ham_covered_via_bulk_transfer(self):
+        """
+        Regresyon: Başlangıç Durumu Aktarımı (bulk_apply_range) ile önceden
+        toplu işaretlenmiş bir öğrenci için, hiç LessonRecord olmasa bile has
+        girişi kabul edilmeli -- normal ders formundan asla has giremeyen bir
+        öğrenci durumuna düşülmemeli.
+        """
+        from memorization.services import bulk_apply_range
+        from memorization.models import MemorizationPage
+
+        bulk_apply_range(
+            self.student, *juz_page_range(9), status=MemorizationPage.Status.NEEDS_REVISION
+        )
+        self.assertFalse(LessonRecord.objects.filter(student=self.student).exists())
+
+        data = self._lesson_post_data(**{"revision_ranges-0-juz_number": "9"})
+        response = self.client.post(
+            reverse("lessons:create", kwargs={"student_pk": self.student.pk}), data
+        )
+        self.assertEqual(response.status_code, 302)
+
     def test_has_allowed_when_ham_completes_juz_in_same_submission(self):
         """Aynı dersin ham'ı, cüzün son eksik parçasını tamamlıyorsa (aynı
         gönderimde), has girişi de kabul edilmeli."""
         juz = 6
         start, end = juz_page_range(juz)
-        LessonRecord.objects.create(
+        lesson = LessonRecord.objects.create(
             student=self.student, date=date.today() - timedelta(days=1),
             ham_start_page=start, ham_end_page=end - 1,  # son sayfa hariç
         )
+        sync_lesson(lesson)
         from core.quran import absolute_to_local_page
         data = self._lesson_post_data(**{
             "ham_juz": str(juz),
@@ -446,12 +470,13 @@ class HamCoverageGuardTests(TestCase):
 
     def test_editing_lesson_does_not_falsely_block_its_own_prior_has(self):
         """Zaten kayıtlı, geçerli bir has kaydını (ham'ı tam olan bir cüz için)
-        düzenlerken exclude_lesson_id yanlış pozitif üretmemeli."""
+        düzenlerken yanlış pozitif üretmemeli."""
         start, end = juz_page_range(7)
         ham_lesson = LessonRecord.objects.create(
             student=self.student, date=date.today() - timedelta(days=5),
             ham_start_page=start, ham_end_page=end,
         )
+        sync_lesson(ham_lesson)
         has_lesson = LessonRecord.objects.create(
             student=self.student, date=date.today() - timedelta(days=1),
         )

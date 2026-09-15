@@ -75,10 +75,10 @@ def get_juz_progress_summary(student):
     }
 
 
-def is_juz_ham_covered(student, juz_number, extra_ranges=(), exclude_lesson_id=None):
+def is_juz_ham_covered(student, juz_number, extra_ranges=()):
     """
-    Bir cüzün TÜM sayfalarının en az bir kez ham (yeni ezber) olarak ders
-    kaydına girilip girilmediğini kontrol eder.
+    Bir cüzün TÜM sayfalarının en az bir kez ham (yeni ezber) olarak
+    "yapılmış" sayılıp sayılmadığını kontrol eder.
 
     NEDEN: Has (tekrar) girişi kullanıcı arayüzünde tek bir cüz seçilerek
     yapılıyor (bkz. lessons/forms.py:RevisionRecordForm) -- bu, cüzün TAMAMININ
@@ -94,32 +94,35 @@ def is_juz_ham_covered(student, juz_number, extra_ranges=(), exclude_lesson_id=N
     has verme" arayüzünü DEĞİŞTİRMEDEN, kaydetmeden önce bu tutarsızlığı
     yakalayıp engellemek için kullanılır (bkz. lessons/views.py).
 
-    extra_ranges: henüz veritabanına kaydedilmemiş, aynı form gönderiminde
-    girilen ek ham aralıkları -- (mutlak_başlangıç, mutlak_bitiş) çiftleri.
-    Böylece "bu dersin ham'ı + bu dersteki has aynı cüz" gibi tek oturumluk
-    girişler de doğru değerlendirilir.
+    ÖNEMLİ: "Ham yapılmış" bilgisi burada LessonRecord'dan değil,
+    MemorizationPage.status'ten (NOT_STUDIED değilse ham yapılmış demektir)
+    okunur. Sebep: bir öğrencinin ham'ı iki farklı yoldan "yapılmış" sayılabilir --
+    (1) günlük ders kayıtları (LessonRecord.ham_start_page/ham_end_page), ya da
+    (2) öğrenci sisteme kaydedilmeden ÖNCE zaten ezberlemiş olduğu cüzler için
+    "Başlangıç Durumu Aktarımı" (bkz. memorization/views.py:MemorizationMapView.post,
+    bulk_apply_range()). İkinci yol BİLEREK LessonRecord/PerformanceHistory
+    OLUŞTURMAZ -- amacı tam olarak, geçmişte zaten ezberlenmiş büyük miktarda
+    sayfanın bir anda "bugün ezberlendi" gibi görünüp Akıllı Tahmin Motoru'nun
+    günlük ham hızını yapay şekilde şişirmesini ENGELLEMEKTİR. Bu fonksiyon
+    LessonRecord'a bakıp bu ikinci yolu görmezden gelirse, Başlangıç Durumu
+    Aktarımı ile aktarılmış bir öğrenci için normal ders formundan has girmek
+    yanlışlıkla HER ZAMAN engellenir. MemorizationPage.status her iki yoldan
+    gelen bilgiyi de zaten birleştirdiği için (bkz. bulk_apply_range ve
+    recompute_student_memorization), buradan okumak her iki senaryoyu da
+    doğru kapsar.
 
-    exclude_lesson_id: bir ders kaydı DÜZENLENİRKEN, o dersin veritabanındaki
-    ESKİ (henüz kaydedilmemiş değişiklikten önceki) ham aralığının iki kez
-    sayılmasını/yanıltmasını önlemek için o dersin id'si dışarıda bırakılır;
-    güncel değeri zaten extra_ranges ile ayrıca geçirilmelidir.
+    extra_ranges: henüz veritabanına/MemorizationPage'e yansımamış, aynı form
+    gönderiminde girilen ek ham aralıkları -- (mutlak_başlangıç, mutlak_bitiş)
+    çiftleri. Böylece "bu dersin ham'ı + bu dersteki has aynı cüz" gibi tek
+    oturumluk girişler de doğru değerlendirilir.
     """
     start, end = juz_page_range(juz_number)
-    covered = set()
 
-    from lessons.models import LessonRecord
-
-    qs = LessonRecord.objects.filter(
-        student=student, ham_start_page__isnull=False, ham_end_page__isnull=False,
-        ham_start_page__lte=end, ham_end_page__gte=start,
+    covered = set(
+        MemorizationPage.objects.filter(
+            student=student, page_number__range=(start, end),
+        ).exclude(status=MemorizationPage.Status.NOT_STUDIED).values_list("page_number", flat=True)
     )
-    if exclude_lesson_id:
-        qs = qs.exclude(pk=exclude_lesson_id)
-    qs = qs.values_list("ham_start_page", "ham_end_page")
-
-    for h_start, h_end in qs:
-        for page_no in range(max(h_start, start), min(h_end, end) + 1):
-            covered.add(page_no)
 
     for extra in extra_ranges:
         if not extra:
