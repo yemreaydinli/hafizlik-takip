@@ -171,7 +171,7 @@ class SeedDemoDataTests(TestCase):
     veri bulamıyordu."""
 
     def test_command_produces_synced_data(self):
-        call_command("seed_demo_data")
+        call_command("seed_demo_data", force=True)
 
         student = Student.objects.get(full_name="Yusuf Emre")
         self.assertTrue(MemorizationPage.objects.filter(student=student).exists())

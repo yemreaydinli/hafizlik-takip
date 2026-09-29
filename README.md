@@ -14,9 +14,8 @@ Sistem Render.com üzerinde yayında: **https://hafizlik-takip-app.onrender.com*
 > Ücretsiz Render planında uygulama bir süre trafik almayınca uyku moduna geçer; ilk istekte
 > sayfanın açılması birkaç saniye (bazen ~30 sn) sürebilir, bu normaldir.
 
-Demo giriş bilgileri (kendi ortamınızda `seed_demo_data` komutunu çalıştırdıysanız aynı bilgiler geçerlidir):
-- Yönetici: `admin` / `admin123`
-- Öğretici: `ogretici` / `ogretici123`
+> ⚠️ Canlı örnekte artık herkese açık demo şifresi yoktur. Demo hesabı görmek isterseniz kendi
+> ortamınızda `python manage.py seed_demo_data` çalıştırın (şifre rastgele üretilip ekrana yazılır).
 
 ---
 
@@ -88,9 +87,10 @@ python manage.py runserver
 
 Tarayıcıdan `http://127.0.0.1:8000/hesap/giris/` adresine gidin.
 
-Demo giriş bilgileri (`seed_demo_data` komutunu çalıştırdıysanız):
-- Yönetici: `admin` / `admin123`
-- Öğretici: `ogretici` / `ogretici123`
+`seed_demo_data` komutu `admin` ve `ogretici` kullanıcılarını **rastgele üretilmiş bir şifreyle**
+oluşturur ve şifreyi ekrana yazar (`--password ...` ile kendiniz de verebilirsiniz). Güvenlik
+nedeniyle `DJANGO_DEBUG=False` iken yalnızca `--force` ile çalışır; gerçek veri bulunan bir
+ortamda çalıştırmayın.
 
 Kendi yönetici hesabınızı oluşturmak isterseniz:
 ```bash
@@ -155,7 +155,7 @@ git push -u origin main
    - **Start Command:** `gunicorn config.wsgi:application`
    - **Plan:** Free
 4. "Environment" sekmesinden şu değişkenleri ekleyin:
-   - `DJANGO_SECRET_KEY` → rastgele uzun bir metin (örn. `python -c "import secrets; print(secrets.token_urlsafe(50))"` ile üretebilirsiniz)
+   - `DJANGO_SECRET_KEY` → **zorunlu** (yoksa `DEBUG=False` iken uygulama açılmaz); rastgele uzun bir metin (örn. `python -c "import secrets; print(secrets.token_urlsafe(50))"` ile üretebilirsiniz)
    - `DJANGO_DEBUG` → `False`
    - `DJANGO_ALLOWED_HOSTS` → `sizin-servis-adiniz.onrender.com`
    - `DJANGO_CSRF_TRUSTED_ORIGINS` → `https://sizin-servis-adiniz.onrender.com`
@@ -196,6 +196,11 @@ Sistem responsive olduğu için ek bir mobil uygulamaya gerek yoktur:
 ---
 
 ## 5. Önemli Notlar ve Varsayımlar
+
+- **Üretim güvenliği:** `DJANGO_DEBUG=False` iken HTTPS yönlendirmesi, güvenli çerezler, HSTS
+  (varsayılan 1 saat; sorun yoksa `DJANGO_HSTS_SECONDS=31536000` yapın), nosniff ve
+  `X-Frame-Options: DENY` otomatik açılır. Kontrol için: `python manage.py check --deploy`.
+- **CI:** `.github/workflows/ci.yml` her push/PR'da migration kontrolü, `check` ve testleri çalıştırır.
 
 
 - Kur'an-ı Kerim toplam sayfa sayısı `settings.TOTAL_QURAN_PAGES = 604` olarak tanımlanmıştır

@@ -1,8 +1,10 @@
 """Hızlı test için örnek yönetici, öğretici ve öğrenci verisi oluşturur."""
 import random
+import secrets
 from datetime import date, timedelta
 
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from accounts.models import User
@@ -15,15 +17,29 @@ from core.quran import juz_of_page, juz_page_range
 
 
 class Command(BaseCommand):
-    help = "Demo amaçlı yönetici, öğretici ve öğrenci verisi oluşturur (admin/admin123, ogretici/ogretici123)."
+    help = (
+        "Demo amaçlı yönetici, öğretici ve öğrenci verisi oluşturur. Şifreler her çalıştırmada "
+        "rastgele üretilir ve ekrana yazdırılır (veya --password ile verilebilir). "
+        "DEBUG=False iken yalnızca --force ile çalışır."
+    )
+
+    def add_arguments(self, parser):
+        parser.add_argument("--password", help="Demo hesapların ortak şifresi (verilmezse rastgele üretilir).")
+        parser.add_argument("--force", action="store_true", help="DEBUG=False ortamında da çalıştır.")
 
     @transaction.atomic
     def handle(self, *args, **options):
+        if not settings.DEBUG and not options["force"]:
+            raise CommandError(
+                "Demo verisi üretimde (DEBUG=False) oluşturulmaz. Gerçekten gerekiyorsa --force kullanın."
+            )
+        password = options["password"] or secrets.token_urlsafe(9)
+
         if not User.objects.filter(username="admin").exists():
             User.objects.create_superuser(
-                username="admin", email="admin@example.com", password="admin123", role=User.Role.ADMIN
+                username="admin", email="admin@example.com", password=password, role=User.Role.ADMIN
             )
-            self.stdout.write(self.style.SUCCESS("Yönetici oluşturuldu: admin / admin123"))
+            self.stdout.write(self.style.SUCCESS(f"Yönetici oluşturuldu: admin / {password}"))
 
         teacher, created = User.objects.get_or_create(
             username="ogretici", defaults={
@@ -32,9 +48,9 @@ class Command(BaseCommand):
             }
         )
         if created:
-            teacher.set_password("ogretici123")
+            teacher.set_password(password)
             teacher.save()
-            self.stdout.write(self.style.SUCCESS("Öğretici oluşturuldu: ogretici / ogretici123"))
+            self.stdout.write(self.style.SUCCESS(f"Öğretici oluşturuldu: ogretici / {password}"))
 
         if not Student.objects.filter(teacher=teacher).exists():
             student = Student.objects.create(

@@ -5,6 +5,7 @@ Ortam değişkenleri (.env dosyası) üzerinden yapılandırılır.
 Yerelde SQLite, üretimde (Render/Railway/Neon/Supabase) DATABASE_URL ile PostgreSQL kullanır.
 """
 import os
+import sys
 from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
@@ -12,8 +13,21 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-dev-key-CHANGE-ME-IN-PRODUCTION")
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
+
+# Üretimde (DEBUG=False) SECRET_KEY ortam değişkeni ZORUNLUDUR; tanımlı değilse
+# uygulama zayıf bir varsayılanla sessizce çalışmak yerine açılışta hata verir.
+_DEV_SECRET_KEY = "django-insecure-dev-key-CHANGE-ME-IN-PRODUCTION"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = _DEV_SECRET_KEY
+    else:
+        raise RuntimeError(
+            "DJANGO_SECRET_KEY ortam değişkeni tanımlı olmalıdır (DJANGO_DEBUG=False iken)."
+        )
+elif not DEBUG and (SECRET_KEY == _DEV_SECRET_KEY or SECRET_KEY.startswith("change-this")):
+    raise RuntimeError("DJANGO_SECRET_KEY örnek/varsayılan bir değer olamaz; rastgele uzun bir anahtar üretin.")
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
@@ -104,9 +118,17 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+RUNNING_TESTS = len(sys.argv) > 1 and sys.argv[1] == "test"
 STORAGES = {
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        # Testlerde collectstatic çalıştırılmadığı için manifest yoktur; manifest tabanlı
+        # depolama yerine düz depolama kullanılır (aksi halde {% static %} kullanan
+        # şablonlar "Missing staticfiles manifest entry" hatasıyla düşer).
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if RUNNING_TESTS
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
     },
 }
 
@@ -118,6 +140,25 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "core:dashboard"
 LOGOUT_REDIRECT_URL = "accounts:login"
+
+# ---------------------------------------------------------------------------
+# Üretim güvenlik ayarları (yalnızca DEBUG=False iken etkin).
+# Render gibi bir reverse proxy arkasında HTTPS, X-Forwarded-Proto başlığı ile bildirilir.
+# ---------------------------------------------------------------------------
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = os.getenv("DJANGO_SSL_REDIRECT", "True") == "True"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_HSTS_SECONDS", "3600"))  # sorunsuzsa 31536000'e (1 yıl) çıkarın
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    X_FRAME_OPTIONS = "DENY"
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 saat
 
 # Hafızlık sistem sabitleri
 TOTAL_QURAN_PAGES = 604

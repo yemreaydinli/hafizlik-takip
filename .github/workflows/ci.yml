@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Bağımlılıkları kur
+        run: pip install -r requirements.txt
+
+      - name: Migration eksik mi kontrol et
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Django sistem kontrolü
+        run: python manage.py check
+
+      - name: Testleri çalıştır
+        run: python manage.py test
+
+      - name: Üretim ayarlarını doğrula (deploy check)
+        env:
+          DJANGO_DEBUG: "False"
+          DJANGO_SECRET_KEY: ci-only-${{ github.run_id }}-0123456789abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOP
+          DJANGO_ALLOWED_HOSTS: example.com
+        run: python manage.py check --deploy
