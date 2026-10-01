@@ -1,4 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpResponse
 from django.db.models import Sum
 from django.utils import timezone
 from django.views.generic import TemplateView
@@ -8,6 +9,9 @@ from memorization.models import MemorizationPage
 from notifications.models import Notification
 from predictions.models import PredictionHistory
 from students.models import Student
+from accounts.views import AdminRequiredMixin
+from .backup import build_backup, get_backup_status
+from .models import BackupLog
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -65,3 +69,23 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             "alerts": alerts,
         })
         return ctx
+
+
+class BackupView(AdminRequiredMixin, TemplateView):
+    """Yedek durumunu gösterir (GET) ve yedeği indirtir (POST). Yalnızca yönetici."""
+    template_name = "core/backup.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["status"] = get_backup_status()
+        ctx["recent_backups"] = BackupLog.objects.select_related("created_by")[:10]
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        data, count = build_backup()
+        BackupLog.objects.create(created_by=request.user, size_bytes=len(data), record_count=count)
+        filename = f"hafizlik-yedek-{timezone.localtime():%Y-%m-%d-%H%M}.json"
+        response = HttpResponse(data, content_type="application/json; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["Cache-Control"] = "no-store"
+        return response

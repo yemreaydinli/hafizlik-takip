@@ -77,6 +77,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.notifications_context",
+                "core.context_processors.backup_context",
             ],
         },
     },
@@ -159,6 +160,10 @@ if not DEBUG:
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 saat
+
+# Yedek alınmadan bu kadar gün geçerse yönetici ekranlarında kırmızı uyarı çıkar.
+# Neon planınızın geri dönüş süresine göre düşürün (örn. 3).
+BACKUP_WARNING_DAYS = int(os.getenv("BACKUP_WARNING_DAYS", "7"))
 
 # Hafızlık sistem sabitleri
 TOTAL_QURAN_PAGES = 604

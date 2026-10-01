@@ -200,6 +200,11 @@ Sistem responsive olduğu için ek bir mobil uygulamaya gerek yoktur:
 - **Üretim güvenliği:** `DJANGO_DEBUG=False` iken HTTPS yönlendirmesi, güvenli çerezler, HSTS
   (varsayılan 1 saat; sorun yoksa `DJANGO_HSTS_SECONDS=31536000` yapın), nosniff ve
   `X-Frame-Options: DENY` otomatik açılır. Kontrol için: `python manage.py check --deploy`.
+- **Yedekleme:** Yönetici, sol menüdeki **💾 Yedekleme** sayfasından tüm veriyi tek bir JSON dosyası olarak
+  indirebilir. Son yedek `BACKUP_WARNING_DAYS` günden (varsayılan 7) eskiyse veya hiç yedek alınmamışsa
+  (ve sistemde öğrenci varsa) yönetici her sayfanın üstünde kırmızı uyarı görür. Geri yükleme:
+  boş veritabanında `python manage.py migrate` ardından `python manage.py loaddata yedek.json`.
+  Yedek dosyası şifre özetlerini de içerir; gizli tutulmalıdır.
 - **CI:** `.github/workflows/ci.yml` her push/PR'da migration kontrolü, `check` ve testleri çalıştırır.
 
 

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Yedekleme{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-slate-800 mb-6">💾 Yedekleme</h1>
+
+{% if status.warn %}
+<div role="alert" class="mb-6 rounded-xl border-2 border-red-600 bg-red-50 text-red-900 px-4 py-4">
+  <p class="font-bold">⚠️ YEDEK GECİKTİ</p>
+  <p class="text-sm mt-1">
+    {% if status.last %}Son yedek {{ status.days_since }} gün önce alındı.{% else %}Hiç yedek alınmamış.{% endif %}
+    Lütfen aşağıdaki düğmeyle şimdi yedek indirin.
+  </p>
+</div>
+{% elif status.last %}
+<div class="mb-6 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 text-sm">
+  ✅ Yedek güncel. Son yedek: <strong>{{ status.last.created_at|date:"d.m.Y H:i" }}</strong>
+  ({{ status.days_since }} gün önce). {{ status.limit_days }} günü geçerse uyarı çıkar.
+</div>
+{% else %}
+<div class="mb-6 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 px-4 py-3 text-sm">
+  Henüz sistemde öğrenci verisi yok; veri girildikten sonra yedek alınması istenecek.
+</div>
+{% endif %}
+
+<div class="bg-white rounded-xl shadow p-6 mb-6">
+  <p class="text-sm text-slate-600 mb-4">
+    Tüm öğrenci, ders, ezber ve kullanıcı verilerini tek bir dosya olarak indirir.
+    Dosyayı bilgisayarınıza ya da Drive'a kaydedin; ayda bir en az bir kez almanız önerilir.
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white font-semibold px-5 py-2.5 rounded-lg">💾 Yedeği indir</button>
+  </form>
+  <p class="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-4">
+    🔒 Bu dosya öğrenci bilgilerini ve şifre özetlerini içerir. Kimseyle paylaşmayın, herkese açık bir yere yüklemeyin.
+    "Yedek alındı" kaydı, indirmenin başlatıldığını gösterir; dosyayı güvenli bir yere kaydetmek sizin sorumluluğunuzdadır.
+  </p>
+</div>
+
+<div class="bg-white rounded-xl shadow p-6 mb-6">
+  <h2 class="font-semibold mb-3">Son yedekler</h2>
+  {% if recent_backups %}
+  <table class="w-full text-sm">
+    <thead class="text-slate-500 text-left"><tr><th class="py-1">Tarih</th><th>Alan</th><th>Kayıt</th><th>Boyut</th></tr></thead>
+    <tbody>
+    {% for b in recent_backups %}
+      <tr class="border-t"><td class="py-1.5">{{ b.created_at|date:"d.m.Y H:i" }}</td><td>{{ b.created_by|default:"-" }}</td><td>{{ b.record_count }}</td><td>{{ b.size_bytes|filesizeformat }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="text-sm text-slate-500">Henüz yedek alınmadı.</p>{% endif %}
+</div>
+
+<details class="bg-white rounded-xl shadow p-6 text-sm text-slate-700">
+  <summary class="font-semibold cursor-pointer">Yedekten geri yükleme (teknik kişi için)</summary>
+  <ol class="list-decimal ml-5 mt-3 space-y-1">
+    <li>Boş bir veritabanı hazırlayın ve <code>DATABASE_URL</code>'i ona yönlendirin.</li>
+    <li><code>python manage.py migrate</code></li>
+    <li><code>python manage.py loaddata hafizlik-yedek-....json</code></li>
+  </ol>
+</details>
+{% endblock %}
