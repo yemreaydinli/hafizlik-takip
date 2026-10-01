@@ -185,7 +185,10 @@ Sistem responsive olduğu için ek bir mobil uygulamaya gerek yoktur:
 ### Adım 5 — Günlük uyarı üretimi için zamanlanmış görev (opsiyonel ama önerilir)
 
 `generate_alerts` komutunun her gün otomatik çalışması için:
-- **Render:** "Cron Jobs" özelliğini kullanarak günde bir kez `python manage.py generate_alerts` komutunu çalıştırın (ücretsiz katmanda sınırlı sayıda cron job desteklenir).
+- **GitHub Actions (ücretsiz, önerilen):** `.github/workflows/alerts.yml` her gün 19:00 UTC'de komutu çalıştırır.
+  Repo → Settings → Secrets and variables → Actions → **New repository secret** ile `DATABASE_URL`
+  (Neon bağlantı adresi) ekleyin. Test için Actions sekmesinden "Günlük uyarılar" → **Run workflow**.
+- **Render:** "Cron Jobs" özelliği de kullanılabilir, ancak Render dokümanlarına göre cron job başına en az 1 USD/ay ücretlidir.
 - **Alternatif:** GitHub Actions ile günlük bir workflow oluşturup Render'daki bir endpoint'i (veya management komutunu SSH/Shell üzerinden) tetikleyebilirsiniz.
 
 > ⚠️ Bu adımın canlı örnekte (`hafizlik-takip-app`) fiilen kurulu olup olmadığı kod deposundan

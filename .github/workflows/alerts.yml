@@ -1,0 +1,38 @@
+name: Günlük uyarılar
+
+# Her gün 19:00 UTC (Türkiye saatiyle 22:00) akıllı uyarıları üretir.
+# Render'da ücretli Cron Job açmak yerine GitHub Actions kullanılır.
+# Gerekli secret: DATABASE_URL (Repo → Settings → Secrets and variables → Actions)
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:  # Actions sekmesinden elle çalıştırmak için
+
+jobs:
+  generate-alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Bağımlılıkları kur
+        run: pip install -r requirements.txt
+
+      - name: Uyarıları üret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DJANGO_DEBUG: "False"
+          # Komut oturum/çerez kullanmaz; yalnızca ayarların yüklenmesi için gereklidir.
+          DJANGO_SECRET_KEY: not-used-by-this-command-0123456789abcdefghijklmnopqrstuvwxyz
+          DJANGO_ALLOWED_HOSTS: localhost
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL secret tanımlı değil; Repo Settings → Secrets → Actions bölümünden ekleyin."
+            exit 1
+          fi
+          python manage.py generate_alerts
