@@ -1,74 +1,68 @@
 {% extends "base.html" %}
-{% block title %}Tahmin - {{ student.full_name }}{% endblock %}
+{% block title %}Tahmin · {{ student.full_name }}{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-  <h1 class="text-2xl font-bold text-slate-800">🔮 Tahmini Bitiş Tarihi — {{ student.full_name }}</h1>
-  <a href="{% url 'students:detail' student.pk %}" class="text-sm text-brand-700 hover:underline">← Öğrenci sayfasına dön</a>
+<a href="{% url 'students:detail' student.pk %}" class="back"><svg class="ic ic-sm"><use href="#i-arrow-left"/></svg>{{ student.full_name }}</a>
+<div class="page-head">
+  <div><h1 class="h1">Tahmini bitiş tarihi</h1><p class="sub">{{ student.full_name }}</p></div>
 </div>
 
 {% if prediction and prediction.estimated_completion_date %}
-<div class="grid md:grid-cols-4 gap-4 mb-4">
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Tahmini Bitiş Tarihi (Hafızlık)</p>
-    <p class="text-xl font-bold text-brand-700">{{ prediction.estimated_completion_date|date:"d.m.Y" }}</p>
+<div class="stats-grid mb-6">
+  <div class="card stat card-accent">
+    <span class="stat-label">Tahmini bitiş</span>
+    <div class="stat-value" style="font-size:24px">{{ prediction.estimated_completion_date|date:"d.m.Y" }}</div>
   </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Kalan Gün</p>
-    <p class="text-xl font-bold text-slate-800">{{ prediction.estimated_remaining_days }} gün</p>
+  <div class="card stat">
+    <span class="stat-label">Kalan gün</span>
+    <div class="stat-value">{{ prediction.estimated_remaining_days }} <small>gün</small></div>
   </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Kalan Sayfa (Has/Pişirme)</p>
-    <p class="text-xl font-bold text-slate-800">{{ prediction.remaining_pages }} sayfa</p>
-    <p class="text-xs text-slate-400 mt-1">≈ {{ remaining_juz }} cüz</p>
+  <div class="card stat">
+    <span class="stat-label">Kalan sayfa (has)</span>
+    <div class="stat-value">{{ prediction.remaining_pages }} <small>sayfa</small></div>
+    <div class="stat-note">≈ {{ remaining_juz }} cüz</div>
   </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Güven Seviyesi</p>
-    <p class="text-xl font-bold
-      {% if prediction.confidence_level == 'high' %}text-emerald-600{% elif prediction.confidence_level == 'medium' %}text-amber-500{% else %}text-red-500{% endif %}">
-      {{ prediction.get_confidence_level_display }}
-    </p>
+  <div class="card stat">
+    <span class="stat-label">Güven seviyesi</span>
+    <div class="stat-value {% if prediction.confidence_level == 'high' %}tone-ok{% elif prediction.confidence_level == 'medium' %}tone-warn{% else %}tone-danger{% endif %}" style="font-size:22px">{{ prediction.get_confidence_level_display }}</div>
   </div>
 </div>
-<div class="grid md:grid-cols-2 gap-4 mb-8">
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Ham (Yeni Ezber) — Kalan / Günlük Hız</p>
-    <p class="text-lg font-semibold text-slate-800">{{ prediction.remaining_ham_pages }} sayfa <span class="text-sm font-normal text-slate-400">/ {{ prediction.ham_daily_pace }} sayfa/gün</span></p>
+
+<div class="grid cols-md-2 mb-6">
+  <div class="card stat">
+    <span class="stat-label">Ham (yeni ezber) · kalan / günlük hız</span>
+    <div class="stat-value" style="font-size:22px">{{ prediction.remaining_ham_pages }} <small>sayfa · {{ prediction.ham_daily_pace }} sayfa/gün</small></div>
   </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Has (Pişirme) — Kalan / Günlük Hız</p>
-    <p class="text-lg font-semibold text-slate-800">{{ prediction.remaining_has_pages }} sayfa <span class="text-sm font-normal text-slate-400">/ {{ prediction.has_daily_pace }} sayfa/gün</span></p>
+  <div class="card stat">
+    <span class="stat-label">Has (pişirme) · kalan / günlük hız</span>
+    <div class="stat-value" style="font-size:22px">{{ prediction.remaining_has_pages }} <small>sayfa · {{ prediction.has_daily_pace }} sayfa/gün</small></div>
   </div>
 </div>
-<p class="text-sm text-slate-500 mb-8">
-  Hesaplama yöntemi: <strong>{{ prediction.get_method_used_display }}</strong>
-  · Belirleyici faz: <strong>{% if prediction.bottleneck_phase %}{{ prediction.get_bottleneck_phase_display }}{% else %}-{% endif %}</strong>
-  · Son hesaplama: {{ prediction.calculated_date|date:"d.m.Y" }}
+<p class="small muted mb-6">
+  Yöntem: <strong>{{ prediction.get_method_used_display }}</strong> ·
+  Belirleyici faz: <strong>{% if prediction.bottleneck_phase %}{{ prediction.get_bottleneck_phase_display }}{% else %}-{% endif %}</strong> ·
+  Son hesaplama: {{ prediction.calculated_date|date:"d.m.Y" }}
 </p>
 {% else %}
-<div class="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl p-5 mb-8 text-sm">
-  Tahmin yapabilmek için henüz yeterli ders kaydı bulunmuyor veya öğrenci hafızlığını tamamlamış olabilir.
-</div>
+<div class="alert alert-warn mb-6"><svg class="ic"><use href="#i-alert"/></svg><div>Tahmin için henüz yeterli ders kaydı yok veya öğrenci hafızlığını tamamlamış olabilir.</div></div>
 {% endif %}
 
-<div class="bg-white rounded-xl shadow overflow-x-auto">
-  <div class="px-4 py-3 border-b border-slate-100 font-semibold text-slate-800">Tahmin Geçmişi</div>
-  <table class="w-full text-sm">
-    <thead class="bg-slate-100 text-slate-600 text-left">
-      <tr><th class="px-4 py-2">Hesaplama Tarihi</th><th class="px-4 py-2">Tahmini Bitiş</th><th class="px-4 py-2">Kalan Gün</th><th class="px-4 py-2">Yöntem</th><th class="px-4 py-2">Güven</th></tr>
-    </thead>
-    <tbody class="divide-y divide-slate-100">
+<section class="card card-flush">
+  <div class="card-head" style="margin:0;padding:18px 18px 14px"><h2 class="h2"><svg class="ic"><use href="#i-clock"/></svg>Tahmin geçmişi</h2></div>
+  <table class="rtable">
+    <thead><tr><th>Hesaplama tarihi</th><th>Tahmini bitiş</th><th>Kalan gün</th><th>Yöntem</th><th>Güven</th></tr></thead>
+    <tbody>
       {% for p in history %}
       <tr>
-        <td class="px-4 py-2">{{ p.calculated_date|date:"d.m.Y" }}</td>
-        <td class="px-4 py-2">{{ p.estimated_completion_date|date:"d.m.Y"|default:"-" }}</td>
-        <td class="px-4 py-2">{{ p.estimated_remaining_days|default:"-" }}</td>
-        <td class="px-4 py-2">{{ p.get_method_used_display }}</td>
-        <td class="px-4 py-2">{{ p.get_confidence_level_display }}</td>
+        <td class="col-title">{{ p.calculated_date|date:"d.m.Y" }}</td>
+        <td data-label="Tahmini bitiş">{{ p.estimated_completion_date|date:"d.m.Y"|default:"-" }}</td>
+        <td data-label="Kalan gün">{{ p.estimated_remaining_days|default:"-" }}</td>
+        <td data-label="Yöntem">{{ p.get_method_used_display }}</td>
+        <td data-label="Güven">{{ p.get_confidence_level_display }}</td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Tahmin geçmişi yok.</td></tr>
+      <tr><td colspan="5" class="empty-cell">Tahmin geçmişi yok.</td></tr>
       {% endfor %}
     </tbody>
   </table>
-</div>
+</section>
 {% endblock %}

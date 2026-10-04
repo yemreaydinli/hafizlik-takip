@@ -1,0 +1,7 @@
+{% if is_paginated %}
+<nav class="pager" aria-label="Sayfalama">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary btn-sm"><svg class="ic ic-sm"><use href="#i-arrow-left"/></svg>Önceki</a>{% else %}<span></span>{% endif %}
+  <span>Sayfa {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary btn-sm">Sonraki<svg class="ic ic-sm"><use href="#i-arrow-right"/></svg></a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}

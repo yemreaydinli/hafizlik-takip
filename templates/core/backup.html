@@ -1,62 +1,71 @@
 {% extends "base.html" %}
-{% block title %}Yedekleme{% endblock %}
+{% block title %}Yedekleme · Hafızlık Takip{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-slate-800 mb-6">💾 Yedekleme</h1>
-
-{% if status.warn %}
-<div role="alert" class="mb-6 rounded-xl border-2 border-red-600 bg-red-50 text-red-900 px-4 py-4">
-  <p class="font-bold">⚠️ YEDEK GECİKTİ</p>
-  <p class="text-sm mt-1">
-    {% if status.last %}Son yedek {{ status.days_since }} gün önce alındı.{% else %}Hiç yedek alınmamış.{% endif %}
-    Lütfen aşağıdaki düğmeyle şimdi yedek indirin.
-  </p>
-</div>
-{% elif status.last %}
-<div class="mb-6 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 text-sm">
-  ✅ Yedek güncel. Son yedek: <strong>{{ status.last.created_at|date:"d.m.Y H:i" }}</strong>
-  ({{ status.days_since }} gün önce). {{ status.limit_days }} günü geçerse uyarı çıkar.
-</div>
-{% else %}
-<div class="mb-6 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 px-4 py-3 text-sm">
-  Henüz sistemde öğrenci verisi yok; veri girildikten sonra yedek alınması istenecek.
-</div>
-{% endif %}
-
-<div class="bg-white rounded-xl shadow p-6 mb-6">
-  <p class="text-sm text-slate-600 mb-4">
-    Tüm öğrenci, ders, ezber ve kullanıcı verilerini tek bir dosya olarak indirir.
-    Dosyayı bilgisayarınıza ya da Drive'a kaydedin; ayda bir en az bir kez almanız önerilir.
-  </p>
-  <form method="post">
-    {% csrf_token %}
-    <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white font-semibold px-5 py-2.5 rounded-lg">💾 Yedeği indir</button>
-  </form>
-  <p class="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-4">
-    🔒 Bu dosya öğrenci bilgilerini ve şifre özetlerini içerir. Kimseyle paylaşmayın, herkese açık bir yere yüklemeyin.
-    "Yedek alındı" kaydı, indirmenin başlatıldığını gösterir; dosyayı güvenli bir yere kaydetmek sizin sorumluluğunuzdadır.
-  </p>
+<div class="page-head">
+  <div><h1 class="h1">Yedekleme</h1><p class="sub">Tüm verileri tek dosya olarak indirin ve güvenli bir yerde saklayın.</p></div>
 </div>
 
-<div class="bg-white rounded-xl shadow p-6 mb-6">
-  <h2 class="font-semibold mb-3">Son yedekler</h2>
-  {% if recent_backups %}
-  <table class="w-full text-sm">
-    <thead class="text-slate-500 text-left"><tr><th class="py-1">Tarih</th><th>Alan</th><th>Kayıt</th><th>Boyut</th></tr></thead>
-    <tbody>
-    {% for b in recent_backups %}
-      <tr class="border-t"><td class="py-1.5">{{ b.created_at|date:"d.m.Y H:i" }}</td><td>{{ b.created_by|default:"-" }}</td><td>{{ b.record_count }}</td><td>{{ b.size_bytes|filesizeformat }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}<p class="text-sm text-slate-500">Henüz yedek alınmadı.</p>{% endif %}
-</div>
+<div class="stack" style="max-width:720px">
+  {% if status.warn %}
+  <div role="alert" class="alert alert-danger">
+    <svg class="ic"><use href="#i-alert"/></svg>
+    <div>
+      <p class="alert-title">YEDEK GECİKTİ</p>
+      <p class="small">{% if status.last %}Son yedek {{ status.days_since }} gün önce alındı.{% else %}Hiç yedek alınmamış.{% endif %} Aşağıdaki düğmeyle şimdi yedek indirin.</p>
+    </div>
+  </div>
+  {% elif status.last %}
+  <div class="alert alert-ok">
+    <svg class="ic"><use href="#i-check-circle"/></svg>
+    <div>Yedek güncel. Son yedek: <strong>{{ status.last.created_at|date:"d.m.Y H:i" }}</strong> ({{ status.days_since }} gün önce). {{ status.limit_days }} günü geçerse uyarı çıkar.</div>
+  </div>
+  {% else %}
+  <div class="alert alert-muted">
+    <svg class="ic"><use href="#i-inbox"/></svg>
+    <div>Henüz sistemde öğrenci verisi yok. Veri girildikten sonra yedek alınması istenecek.</div>
+  </div>
+  {% endif %}
 
-<details class="bg-white rounded-xl shadow p-6 text-sm text-slate-700">
-  <summary class="font-semibold cursor-pointer">Yedekten geri yükleme (teknik kişi için)</summary>
-  <ol class="list-decimal ml-5 mt-3 space-y-1">
-    <li>Boş bir veritabanı hazırlayın ve <code>DATABASE_URL</code>'i ona yönlendirin.</li>
-    <li><code>python manage.py migrate</code></li>
-    <li><code>python manage.py loaddata hafizlik-yedek-....json</code></li>
-  </ol>
-</details>
+  <section class="card">
+    <p class="small muted">Öğrenci, ders, ezber ve kullanıcı verilerinin tamamını indirir. Dosyayı bilgisayarınıza veya Drive'a kaydedin; ayda en az bir kez almanız önerilir.</p>
+    <form method="post" class="actions actions-stack" style="margin-top:16px">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary"><svg class="ic ic-sm"><use href="#i-download"/></svg>Yedeği indir</button>
+    </form>
+    <div class="alert alert-warn" style="margin-top:18px">
+      <svg class="ic"><use href="#i-lock"/></svg>
+      <div class="small">Dosya öğrenci bilgilerini ve şifre özetlerini içerir. Kimseyle paylaşmayın, herkese açık bir yere yüklemeyin. “Yedek alındı” kaydı yalnızca indirmenin başladığını gösterir; dosyayı saklamak sizin sorumluluğunuzdadır.</div>
+    </div>
+  </section>
+
+  <section class="card card-flush">
+    <div class="card-head" style="margin:0;padding:18px 18px 14px"><h2 class="h2"><svg class="ic"><use href="#i-clock"/></svg>Son yedekler</h2></div>
+    {% if recent_backups %}
+    <table class="rtable">
+      <thead><tr><th>Tarih</th><th>Alan</th><th>Kayıt</th><th>Boyut</th></tr></thead>
+      <tbody>
+      {% for b in recent_backups %}
+        <tr>
+          <td class="col-title">{{ b.created_at|date:"d.m.Y H:i" }}</td>
+          <td data-label="Alan">{{ b.created_by|default:"-" }}</td>
+          <td data-label="Kayıt">{{ b.record_count }}</td>
+          <td data-label="Boyut">{{ b.size_bytes|filesizeformat }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Henüz yedek alınmadı.</div>
+    {% endif %}
+  </section>
+
+  <details class="card">
+    <summary>Yedekten geri yükleme (teknik kişi için)<svg class="ic ic-sm"><use href="#i-chevron"/></svg></summary>
+    <ol class="small muted" style="margin:0;padding-left:20px;display:grid;gap:6px">
+      <li>Boş bir veritabanı hazırlayın ve <code>DATABASE_URL</code>'i ona yönlendirin.</li>
+      <li><code>python manage.py migrate</code></li>
+      <li><code>python manage.py loaddata hafizlik-yedek-....json</code></li>
+    </ol>
+  </details>
+</div>
 {% endblock %}

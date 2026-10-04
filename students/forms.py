@@ -3,7 +3,7 @@ from core.widgets import ISODateInput
 from .models import Student
 from accounts.models import User
 
-TAILWIND_INPUT = "w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-500 focus:ring-emerald-500 text-sm"
+TAILWIND_INPUT = "input"  # sınıf adı geçmişten kaldı; artık static/css/app.css içindeki .input kullanılır
 
 
 class StudentForm(forms.ModelForm):

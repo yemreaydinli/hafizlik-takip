@@ -1,75 +1,81 @@
 {% extends "base.html" %}
-{% block title %}Panel{% endblock %}
+{% block title %}Panel · Hafızlık Takip{% endblock %}
 {% block content %}
-<div class="flex flex-wrap items-center justify-between gap-4 mb-1">
-  <h1 class="text-2xl font-bold text-slate-800">Merhaba, {{ user.get_full_name|default:user.username }} 👋</h1>
-  <a href="{% url 'lessons:daily_entry' %}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow">🗓️ Bugünkü Ders Gir</a>
-</div>
-<p class="text-slate-500 mb-6">İşte bugünün özeti.</p>
-
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Toplam Öğrenci</p>
-    <p class="text-2xl font-bold text-slate-800">{{ total_students }}</p>
+<div class="page-head">
+  <div>
+    <h1 class="h1">Merhaba, {{ user.get_full_name|default:user.username }}</h1>
+    <p class="sub">Bugünün özeti</p>
   </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Aktif Öğrenci</p>
-    <p class="text-2xl font-bold text-emerald-600">{{ active_students }}</p>
-  </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Bugün Gelen</p>
-    <p class="text-2xl font-bold text-slate-800">{{ today_present }}</p>
-  </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Bugün Gelmeyen</p>
-    <p class="text-2xl font-bold text-red-500">{{ today_absent }}</p>
-  </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Bugünkü Toplam Ham</p>
-    <p class="text-2xl font-bold text-slate-800">{{ today_ham_pages }} sayfa</p>
-  </div>
-  <div class="bg-white rounded-xl shadow p-5">
-    <p class="text-xs text-slate-500">Bugünkü Toplam Tekrar</p>
-    <p class="text-2xl font-bold text-slate-800">{{ today_revision_pages }} sayfa</p>
-  </div>
-  <div class="bg-white rounded-xl shadow p-5 col-span-2">
-    <p class="text-xs text-slate-500">Bu Ay Tamamlanan Sayfa</p>
-    <p class="text-2xl font-bold text-brand-700">{{ month_completed_pages }} sayfa</p>
-    <p class="text-xs text-slate-400 mt-1">≈ {{ month_completed_juz }} cüz</p>
-  </div>
+  <a href="{% url 'lessons:daily_entry' %}" class="btn btn-primary hide-mobile"><svg class="ic ic-sm"><use href="#i-plus"/></svg>Bugünkü ders gir</a>
 </div>
 
-<div class="grid md:grid-cols-2 gap-6">
-  <div class="bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold text-slate-800 mb-4">🏁 Yakında Hafızlığı Tamamlayacak Öğrenciler</h2>
+<div class="stats-grid mb-6">
+  <div class="card stat">
+    <div class="stat-top"><span class="stat-label">Toplam öğrenci</span><span class="chip-ic"><svg class="ic ic-sm"><use href="#i-users"/></svg></span></div>
+    <div class="stat-value">{{ total_students }}</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-top"><span class="stat-label">Aktif öğrenci</span><span class="chip-ic ok"><svg class="ic ic-sm"><use href="#i-check-circle"/></svg></span></div>
+    <div class="stat-value">{{ active_students }}</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-top"><span class="stat-label">Bugün gelen</span><span class="chip-ic ok"><svg class="ic ic-sm"><use href="#i-calendar"/></svg></span></div>
+    <div class="stat-value">{{ today_present }}</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-top"><span class="stat-label">Bugün gelmeyen</span><span class="chip-ic danger"><svg class="ic ic-sm"><use href="#i-alert"/></svg></span></div>
+    <div class="stat-value">{{ today_absent }}</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-top"><span class="stat-label">Bugünkü ham</span><span class="chip-ic info"><svg class="ic ic-sm"><use href="#i-book"/></svg></span></div>
+    <div class="stat-value">{{ today_ham_pages }} <small>sayfa</small></div>
+  </div>
+  <div class="card stat">
+    <div class="stat-top"><span class="stat-label">Bugünkü tekrar</span><span class="chip-ic warn"><svg class="ic ic-sm"><use href="#i-repeat"/></svg></span></div>
+    <div class="stat-value">{{ today_revision_pages }} <small>sayfa</small></div>
+  </div>
+  <div class="card card-accent stat span-2">
+    <div class="stat-top"><span class="stat-label">Bu ay tamamlanan</span><span class="chip-ic"><svg class="ic ic-sm"><use href="#i-trend"/></svg></span></div>
+    <div class="stat-value">{{ month_completed_pages }} <small>sayfa</small></div>
+    <div class="stat-note">≈ {{ month_completed_juz }} cüz</div>
+  </div>
+</div>
+
+<div class="grid cols-md-2">
+  <section class="card">
+    <div class="card-head"><h2 class="h2"><svg class="ic"><use href="#i-flag"/></svg>Yakında tamamlayacaklar</h2></div>
     {% if upcoming_completions %}
-      <ul class="space-y-3">
+      <div class="list">
         {% for s, pred in upcoming_completions %}
-          <li class="flex items-center justify-between text-sm border-b border-slate-100 pb-2">
-            <a href="{% url 'students:detail' s.pk %}" class="font-medium text-slate-700 hover:text-brand-700">{{ s.full_name }}</a>
-            <span class="text-slate-500">{{ pred.estimated_remaining_days }} gün kaldı</span>
-          </li>
+          <div>
+            <span class="avatar avatar-sm">{{ s.full_name|slice:":1" }}</span>
+            <a href="{% url 'students:detail' s.pk %}" class="grow strong">{{ s.full_name }}</a>
+            <span class="badge badge-ok nodot">{{ pred.estimated_remaining_days }} gün kaldı</span>
+          </div>
         {% endfor %}
-      </ul>
+      </div>
     {% else %}
-      <p class="text-sm text-slate-400">Henüz tahmin verisi yok.</p>
+      <div class="empty"><span class="chip-ic"><svg class="ic"><use href="#i-flag"/></svg></span>Henüz tahmin verisi yok.</div>
     {% endif %}
-  </div>
+  </section>
 
-  <div class="bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold text-slate-800 mb-4">🔔 Uyarılar</h2>
+  <section class="card">
+    <div class="card-head">
+      <h2 class="h2"><svg class="ic"><use href="#i-bell"/></svg>Uyarılar</h2>
+      <a href="{% url 'notifications:list' %}" class="link small">Tümü</a>
+    </div>
     {% if alerts %}
-      <ul class="space-y-3">
+      <div class="list">
         {% for a in alerts %}
-          <li class="text-sm border-b border-slate-100 pb-2">
-            <span class="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 mr-2">{{ a.get_type_display }}</span>
-            {{ a.message }}
-          </li>
+          <div style="align-items:flex-start">
+            <span class="badge badge-warn nodot">{{ a.get_type_display }}</span>
+            <p class="grow small">{{ a.message }}</p>
+          </div>
         {% endfor %}
-      </ul>
+      </div>
     {% else %}
-      <p class="text-sm text-slate-400">Aktif uyarı bulunmuyor.</p>
+      <div class="empty"><span class="chip-ic ok"><svg class="ic"><use href="#i-check-circle"/></svg></span>Aktif uyarı yok.</div>
     {% endif %}
-  </div>
+  </section>
 </div>
 {% endblock %}

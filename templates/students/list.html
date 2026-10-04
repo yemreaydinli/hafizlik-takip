@@ -1,55 +1,49 @@
 {% extends "base.html" %}
-{% block title %}Öğrenciler{% endblock %}
+{% block title %}Öğrenciler · Hafızlık Takip{% endblock %}
 {% block content %}
-<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-  <h1 class="text-2xl font-bold text-slate-800">Öğrenciler</h1>
-  <a href="{% url 'students:create' %}" class="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Yeni Öğrenci</a>
+<div class="page-head">
+  <div><h1 class="h1">Öğrenciler</h1><p class="sub">Kayıtlı öğrencileri ara, filtrele ve yönet.</p></div>
+  <a href="{% url 'students:create' %}" class="btn btn-primary"><svg class="ic ic-sm"><use href="#i-plus"/></svg>Yeni öğrenci</a>
 </div>
 
-<form method="get" class="flex flex-wrap gap-3 mb-5">
-  <input type="text" name="q" value="{{ query }}" placeholder="İsim veya telefon ara..." class="rounded-lg border border-slate-300 px-3 py-2 text-sm flex-1 min-w-[200px]">
-  <select name="status" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-    <option value="">Tüm Durumlar</option>
+<form method="get" class="row row-wrap mb-4">
+  <div class="search">
+    <svg class="ic"><use href="#i-search"/></svg>
+    <input type="search" name="q" value="{{ query }}" placeholder="İsim veya telefon ara" class="input" aria-label="Ara">
+  </div>
+  <select name="status" class="input" style="width:auto;min-width:160px" aria-label="Durum">
+    <option value="">Tüm durumlar</option>
     {% for value, label in status_choices %}
       <option value="{{ value }}" {% if value == current_status %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
-  <button class="bg-slate-700 hover:bg-slate-800 text-white text-sm px-4 py-2 rounded-lg">Filtrele</button>
+  <button class="btn btn-secondary">Filtrele</button>
 </form>
 
-<div class="bg-white rounded-xl shadow overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead class="bg-slate-100 text-slate-600 text-left">
-      <tr><th class="px-4 py-3">Ad Soyad</th><th class="px-4 py-3">Başlangıç</th><th class="px-4 py-3">Durum</th><th class="px-4 py-3">Öğretici</th><th class="px-4 py-3"></th></tr>
-    </thead>
-    <tbody class="divide-y divide-slate-100">
+<div class="card card-flush">
+  <table class="rtable">
+    <thead><tr><th>Ad soyad</th><th>Başlangıç</th><th>Durum</th><th>Öğretici</th><th></th></tr></thead>
+    <tbody>
       {% for s in students %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3 font-medium"><a href="{% url 'students:detail' s.pk %}" class="hover:text-brand-700">{{ s.full_name }}</a></td>
-        <td class="px-4 py-3">{{ s.start_date|date:"d.m.Y" }}</td>
-        <td class="px-4 py-3">
-          {% if s.status == 'active' %}<span class="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700">Aktif</span>
-          {% elif s.status == 'paused' %}<span class="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700">Ara Verdi</span>
-          {% else %}<span class="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">Tamamladı</span>{% endif %}
+      <tr>
+        <td class="col-title"><a href="{% url 'students:detail' s.pk %}" class="name"><span class="avatar avatar-sm">{{ s.full_name|slice:":1" }}</span>{{ s.full_name }}</a></td>
+        <td data-label="Başlangıç">{{ s.start_date|date:"d.m.Y" }}</td>
+        <td data-label="Durum">
+          {% if s.status == 'active' %}<span class="badge badge-ok">Aktif</span>
+          {% elif s.status == 'paused' %}<span class="badge badge-warn">Ara verdi</span>
+          {% else %}<span class="badge badge-info">Tamamladı</span>{% endif %}
         </td>
-        <td class="px-4 py-3">{{ s.teacher.get_full_name|default:s.teacher.username }}</td>
-        <td class="px-4 py-3 text-right space-x-2">
-          <a href="{% url 'students:update' s.pk %}" class="text-brand-700 hover:underline">Düzenle</a>
-          <a href="{% url 'students:delete' s.pk %}" class="text-red-600 hover:underline">Sil</a>
+        <td data-label="Öğretici">{{ s.teacher.get_full_name|default:s.teacher.username }}</td>
+        <td class="col-actions">
+          <a href="{% url 'students:update' s.pk %}" class="btn btn-ghost btn-sm"><svg class="ic ic-sm"><use href="#i-pen"/></svg>Düzenle</a>
+          <a href="{% url 'students:delete' s.pk %}" class="btn btn-ghost btn-sm danger"><svg class="ic ic-sm"><use href="#i-trash"/></svg>Sil</a>
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Kayıtlı öğrenci bulunamadı.</td></tr>
+      <tr><td colspan="5" class="empty-cell">Kayıtlı öğrenci bulunamadı.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
-
-{% if is_paginated %}
-<div class="mt-4 flex gap-2 text-sm">
-  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300">Önceki</a>{% endif %}
-  <span class="px-3 py-1">Sayfa {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300">Sonraki</a>{% endif %}
-</div>
-{% endif %}
+{% include "partials/pager.html" %}
 {% endblock %}

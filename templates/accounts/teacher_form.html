@@ -1,18 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Öğretici{% endblock %}
+{% block title %}Öğretici · Hafızlık Takip{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-slate-800 mb-6">{% if object %}Öğretici Düzenle{% else %}Yeni Öğretici{% endif %}</h1>
-<div class="bg-white rounded-xl shadow p-6 max-w-lg">
-  <form method="post" class="space-y-4">
-    {% csrf_token %}
-    {% for field in form %}
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">{{ field.label }}</label>
-        {{ field }}
-        {% if field.errors %}<p class="text-red-600 text-xs mt-1">{{ field.errors|striptags }}</p>{% endif %}
-      </div>
-    {% endfor %}
-    <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 py-2.5 rounded-lg">Kaydet</button>
-  </form>
-</div>
+<a href="{% url 'accounts:teacher_list' %}" class="back"><svg class="ic ic-sm"><use href="#i-arrow-left"/></svg>Öğreticiler</a>
+<div class="page-head"><h1 class="h1">{% if object %}Öğreticiyi düzenle{% else %}Yeni öğretici{% endif %}</h1></div>
+<form method="post" class="card card-narrow stack">
+  {% csrf_token %}
+  {% for field in form %}
+    {% include "partials/field.html" with field=field %}
+  {% endfor %}
+  <div class="actions actions-stack">
+    <a href="{% url 'accounts:teacher_list' %}" class="btn btn-ghost">Vazgeç</a>
+    <button type="submit" class="btn btn-primary">Kaydet</button>
+  </div>
+</form>
 {% endblock %}

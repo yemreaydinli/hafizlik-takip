@@ -1,37 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Ders Kayıtları{% endblock %}
+{% block title %}Ders kayıtları · Hafızlık Takip{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-slate-800 mb-6">Günlük Ders Kayıtları</h1>
-<div class="bg-white rounded-xl shadow overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead class="bg-slate-100 text-slate-600 text-left">
-      <tr><th class="px-4 py-3">Öğrenci</th><th class="px-4 py-3">Tarih</th><th class="px-4 py-3">Devam</th><th class="px-4 py-3">Ham</th><th class="px-4 py-3">Tekrar</th><th class="px-4 py-3">Kalite</th><th class="px-4 py-3"></th></tr>
-    </thead>
-    <tbody class="divide-y divide-slate-100">
+<div class="page-head">
+  <div><h1 class="h1">Ders kayıtları</h1><p class="sub">Günlük ders geçmişi.</p></div>
+  <a href="{% url 'lessons:daily_entry' %}" class="btn btn-primary hide-mobile"><svg class="ic ic-sm"><use href="#i-plus"/></svg>Bugünkü ders gir</a>
+</div>
+<div class="card card-flush">
+  <table class="rtable">
+    <thead><tr><th>Öğrenci</th><th>Tarih</th><th>Devam</th><th>Ham</th><th>Tekrar</th><th>Kalite</th><th></th></tr></thead>
+    <tbody>
       {% for lesson in lessons %}
-      <tr class="hover:bg-slate-50">
-        <td class="px-4 py-3 font-medium"><a href="{% url 'students:detail' lesson.student.pk %}" class="hover:text-brand-700">{{ lesson.student.full_name }}</a></td>
-        <td class="px-4 py-3">{{ lesson.date|date:"d.m.Y" }}</td>
-        <td class="px-4 py-3">{{ lesson.get_attendance_display }}</td>
-        <td class="px-4 py-3">{{ lesson.ham_juz_label|default:"-" }}{% if lesson.pismis_done %} <span class="text-xs text-emerald-600" title="Pişmiş okundu">(Pişmiş ✓)</span>{% endif %}</td>
-        <td class="px-4 py-3">{{ lesson.revision_juz_labels|join:", "|default:"-" }}</td>
-        <td class="px-4 py-3">{{ lesson.get_quality_display|default:"-" }}</td>
-        <td class="px-4 py-3 text-right space-x-2">
-          <a href="{% url 'lessons:update' lesson.pk %}" class="text-brand-700 hover:underline">Düzenle</a>
-          <a href="{% url 'lessons:delete' lesson.pk %}" class="text-red-600 hover:underline">Sil</a>
+      <tr>
+        <td class="col-title"><a href="{% url 'students:detail' lesson.student.pk %}" class="name"><span class="avatar avatar-sm">{{ lesson.student.full_name|slice:":1" }}</span>{{ lesson.student.full_name }}</a></td>
+        <td data-label="Tarih">{{ lesson.date|date:"d.m.Y" }}</td>
+        <td data-label="Devam">{{ lesson.get_attendance_display }}</td>
+        <td data-label="Ham"><span>{{ lesson.ham_juz_label|default:"-" }}{% if lesson.pismis_done %} <span class="badge badge-ok nodot" title="Pişmiş okundu">Pişmiş</span>{% endif %}</span></td>
+        <td data-label="Tekrar">{{ lesson.revision_juz_labels|join:", "|default:"-" }}</td>
+        <td data-label="Kalite">{{ lesson.get_quality_display|default:"-" }}</td>
+        <td class="col-actions">
+          <a href="{% url 'lessons:update' lesson.pk %}" class="btn btn-ghost btn-sm"><svg class="ic ic-sm"><use href="#i-pen"/></svg>Düzenle</a>
+          <a href="{% url 'lessons:delete' lesson.pk %}" class="btn btn-ghost btn-sm danger"><svg class="ic ic-sm"><use href="#i-trash"/></svg>Sil</a>
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">Kayıt bulunamadı.</td></tr>
+      <tr><td colspan="7" class="empty-cell">Kayıt bulunamadı.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
-{% if is_paginated %}
-<div class="mt-4 flex gap-2 text-sm">
-  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300">Önceki</a>{% endif %}
-  <span class="px-3 py-1">Sayfa {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300">Sonraki</a>{% endif %}
-</div>
-{% endif %}
+{% include "partials/pager.html" %}
 {% endblock %}

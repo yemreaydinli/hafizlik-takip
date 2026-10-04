@@ -1,249 +1,239 @@
 {% extends "base.html" %}
-{% block title %}{{ student.full_name }}{% endblock %}
+{% block title %}{{ student.full_name }} · Hafızlık Takip{% endblock %}
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 {% endblock %}
 
 {% block content %}
-<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-  <div>
-    <h1 class="text-2xl font-bold text-slate-800">{{ student.full_name }}</h1>
-    <p class="text-sm text-slate-500">Hafızlığa başlama: {{ student.start_date|date:"d.m.Y" }} · Öğretici: {{ student.teacher.get_full_name|default:student.teacher.username }}</p>
+<a href="{% url 'students:list' %}" class="back"><svg class="ic ic-sm"><use href="#i-arrow-left"/></svg>Öğrenciler</a>
+<div class="page-head">
+  <div class="row" style="gap:14px">
+    <span class="avatar" style="width:52px;height:52px;font-size:20px">{{ student.full_name|slice:":1" }}</span>
+    <div>
+      <h1 class="h1">{{ student.full_name }}</h1>
+      <p class="sub">{{ student.start_date|date:"d.m.Y" }} tarihinde başladı · Öğretici: {{ student.teacher.get_full_name|default:student.teacher.username }}</p>
+    </div>
   </div>
-  <div class="flex flex-wrap gap-2">
-    <a href="{% url 'lessons:create' student.pk %}?today=1" class="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Ders Kaydı</a>
-    <a href="{% url 'reports:student_card' student.pk %}" class="border border-slate-300 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50">📄 PDF Karne</a>
-    <a href="{% url 'students:update' student.pk %}" class="border border-slate-300 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-50">Düzenle</a>
+  <div class="actions">
+    <a href="{% url 'lessons:create' student.pk %}?today=1" class="btn btn-primary"><svg class="ic ic-sm"><use href="#i-plus"/></svg>Ders kaydı</a>
+    <a href="{% url 'reports:student_card' student.pk %}" class="btn btn-secondary"><svg class="ic ic-sm"><use href="#i-file"/></svg>PDF karne</a>
+    <a href="{% url 'students:update' student.pk %}" class="btn btn-secondary"><svg class="ic ic-sm"><use href="#i-pen"/></svg>Düzenle</a>
   </div>
 </div>
 
-<!-- Üst özet kartları -->
-<div class="grid md:grid-cols-4 gap-4 mb-6">
-  <div class="bg-white rounded-xl shadow p-4">
-    <p class="text-xs text-slate-500">İlerleme</p>
-    <p class="text-xl font-bold text-brand-700">%{{ progress.progress_percent }}</p>
-    <div class="w-full bg-slate-100 rounded-full h-2 mt-2">
-      <div class="bg-brand-600 h-2 rounded-full" style="width: {{ progress.progress_percent }}%"></div>
-    </div>
+<div class="stats-grid mb-6">
+  <div class="card stat">
+    <span class="stat-label">İlerleme</span>
+    <div class="stat-value tone-ok">%{{ progress.progress_percent }}</div>
+    <div class="progress"><i style="width: {{ progress.progress_percent }}%"></i></div>
   </div>
-  <div class="bg-white rounded-xl shadow p-4">
-    <p class="text-xs text-slate-500">Devam Yüzdesi</p>
-    <p class="text-xl font-bold {% if attendance.attendance_percent >= 80 %}text-emerald-600{% elif attendance.attendance_percent >= 60 %}text-amber-500{% else %}text-red-500{% endif %}">%{{ attendance.attendance_percent }}</p>
-    <p class="text-xs text-slate-400 mt-1">{{ attendance.present }} geldi / {{ attendance.total }} ders</p>
+  <div class="card stat">
+    <span class="stat-label">Devam yüzdesi</span>
+    <div class="stat-value {% if attendance.attendance_percent >= 80 %}tone-ok{% elif attendance.attendance_percent >= 60 %}tone-warn{% else %}tone-danger{% endif %}">%{{ attendance.attendance_percent }}</div>
+    <div class="stat-note">{{ attendance.present }} geldi / {{ attendance.total }} ders</div>
   </div>
-  <div class="bg-white rounded-xl shadow p-4">
-    <p class="text-xs text-slate-500">Tahmini Bitiş</p>
+  <div class="card stat">
+    <span class="stat-label">Tahmini bitiş</span>
     {% if prediction and prediction.estimated_completion_date %}
-      <p class="text-xl font-bold text-slate-800">{{ prediction.estimated_completion_date|date:"d.m.Y" }}</p>
-      <p class="text-xs text-slate-400 mt-1">{{ prediction.estimated_remaining_days }} gün kaldı</p>
+      <div class="stat-value" style="font-size:22px">{{ prediction.estimated_completion_date|date:"d.m.Y" }}</div>
+      <div class="stat-note">{{ prediction.estimated_remaining_days }} gün kaldı</div>
     {% else %}
-      <p class="text-sm text-slate-400 mt-1">Henüz yeterli veri yok</p>
+      <div class="stat-note" style="margin-top:6px">Henüz yeterli veri yok</div>
     {% endif %}
   </div>
-  <div class="bg-white rounded-xl shadow p-4">
-    <p class="text-xs text-slate-500">Durum</p>
-    <p class="text-xl font-bold text-slate-700">{{ student.get_status_display }}</p>
+  <div class="card stat">
+    <span class="stat-label">Durum</span>
+    <div class="stat-value" style="font-size:22px">{{ student.get_status_display }}</div>
     {% if attendance.consecutive_absent >= 3 %}
-      <p class="text-xs text-red-500 mt-1">⚠ {{ attendance.consecutive_absent }} ardışık devamsızlık</p>
+      <div class="stat-note tone-danger">{{ attendance.consecutive_absent }} ardışık devamsızlık</div>
     {% endif %}
   </div>
 </div>
 
-<!-- Devam istatistikleri -->
-<div class="grid md:grid-cols-2 gap-6 mb-6">
-  <div class="bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold text-slate-800 mb-4">🗓️ Devam / Yoklama İstatistikleri</h2>
-    <div class="grid grid-cols-3 gap-3 text-center">
-      <div>
-        <p class="text-2xl font-bold text-emerald-600">{{ attendance.present }}</p>
-        <p class="text-xs text-slate-500">Geldi</p>
-      </div>
-      <div>
-        <p class="text-2xl font-bold text-red-500">{{ attendance.absent }}</p>
-        <p class="text-xs text-slate-500">Gelmedi</p>
-      </div>
-      <div>
-        <p class="text-2xl font-bold text-slate-500">{{ attendance.excused }}</p>
-        <p class="text-xs text-slate-500">İzinli</p>
-      </div>
+<div class="grid cols-md-2 mb-6">
+  <section class="card">
+    <div class="card-head"><h2 class="h2"><svg class="ic"><use href="#i-calendar"/></svg>Devam durumu</h2></div>
+    <div class="trio">
+      <div><b class="tone-ok">{{ attendance.present }}</b><span>Geldi</span></div>
+      <div><b class="tone-danger">{{ attendance.absent }}</b><span>Gelmedi</span></div>
+      <div><b>{{ attendance.excused }}</b><span>İzinli</span></div>
     </div>
-    <div class="mt-4 pt-4 border-t border-slate-100 text-sm text-slate-600 space-y-1">
-      <p>Bu ay devamsızlık: <strong>{{ attendance.monthly_absent }}</strong></p>
-      <p>Ardışık devamsızlık: <strong>{{ attendance.consecutive_absent }}</strong></p>
-      <p>Toplam ders sayısı: <strong>{{ attendance.total }}</strong></p>
-    </div>
-  </div>
+    <hr class="divider">
+    <dl class="kv">
+      <dt>Bu ay devamsızlık</dt><dd>{{ attendance.monthly_absent }}</dd>
+      <dt>Ardışık devamsızlık</dt><dd>{{ attendance.consecutive_absent }}</dd>
+      <dt>Toplam ders</dt><dd>{{ attendance.total }}</dd>
+    </dl>
+  </section>
 
-  <!-- Hedef karşılaştırması -->
-  <div class="bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold text-slate-800 mb-4">🎯 Hedef Karşılaştırması</h2>
+  <section class="card">
+    <div class="card-head"><h2 class="h2"><svg class="ic"><use href="#i-target"/></svg>Hedef karşılaştırması</h2></div>
     {% if student.target_completion_date %}
-      <p class="text-sm text-slate-600 mb-2">Hedef Tarih: <strong>{{ student.target_completion_date|date:"d.m.Y" }}</strong></p>
+      <dl class="kv">
+        <dt>Hedef tarih</dt><dd>{{ student.target_completion_date|date:"d.m.Y" }}</dd>
+        {% if prediction and prediction.estimated_completion_date %}<dt>Tahmini tarih</dt><dd>{{ prediction.estimated_completion_date|date:"d.m.Y" }}</dd>{% endif %}
+      </dl>
       {% if prediction and prediction.estimated_completion_date %}
-        <p class="text-sm text-slate-600 mb-3">Tahmini Tarih: <strong>{{ prediction.estimated_completion_date|date:"d.m.Y" }}</strong></p>
         {% if target_deviation_days is not None %}
+          <div class="mt-3">
           {% if target_deviation_days > 0 %}
-            <div class="bg-amber-50 text-amber-700 text-sm rounded-lg px-3 py-2">⏰ Hedeften <strong>{{ target_deviation_abs }} gün</strong> geride gidiyor.</div>
+            <div class="alert alert-warn"><svg class="ic"><use href="#i-clock"/></svg><div>Hedeften <strong>{{ target_deviation_abs }} gün</strong> geride gidiyor.</div></div>
           {% elif target_deviation_days < 0 %}
-            <div class="bg-emerald-50 text-emerald-700 text-sm rounded-lg px-3 py-2">🚀 Hedeften <strong>{{ target_deviation_abs }} gün</strong> önde gidiyor.</div>
+            <div class="alert alert-ok"><svg class="ic"><use href="#i-trend"/></svg><div>Hedeften <strong>{{ target_deviation_abs }} gün</strong> önde gidiyor.</div></div>
           {% else %}
-            <div class="bg-slate-50 text-slate-600 text-sm rounded-lg px-3 py-2">Tam hedefte gidiyor.</div>
+            <div class="alert alert-muted"><svg class="ic"><use href="#i-target"/></svg><div>Tam hedefte gidiyor.</div></div>
           {% endif %}
+          </div>
         {% endif %}
       {% else %}
-        <p class="text-sm text-slate-400">Tahmin için henüz yeterli veri yok.</p>
+        <p class="help mt-3">Tahmin için henüz yeterli veri yok.</p>
       {% endif %}
 
       {% if target_progress %}
-        <div class="mt-4 pt-4 border-t border-slate-100">
-          <p class="text-xs text-slate-500 mb-2">Hedefe göre bugün itibarıyla olması gereken: <strong>{{ target_progress.expected_pages_by_now }} sayfa</strong> (~{{ target_progress.expected_juz_by_now }}. Cüz) — gerçekte pişmiş: <strong>{{ target_progress.actual_pages }} sayfa</strong></p>
-          <div class="w-full bg-slate-100 rounded-full h-2.5 mb-2">
-            <div class="h-2.5 rounded-full {% if target_progress.target_progress_percent >= 100 %}bg-emerald-500{% elif target_progress.target_progress_percent >= 80 %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width: {{ target_progress.target_progress_percent }}%; max-width: 100%;"></div>
-          </div>
-          {% if target_progress.pages_ahead_behind > 0 %}
-            <div class="bg-emerald-50 text-emerald-700 text-sm rounded-lg px-3 py-2">🚀 Hedeften <strong>{{ target_progress.pages_ahead_behind_abs }} sayfa</strong> önde (%{{ target_progress.target_progress_percent }} hedef ilerlemesi).</div>
-          {% elif target_progress.pages_ahead_behind < 0 %}
-            <div class="bg-amber-50 text-amber-700 text-sm rounded-lg px-3 py-2">⏰ Hedeften <strong>{{ target_progress.pages_ahead_behind_abs }} sayfa</strong> geride (%{{ target_progress.target_progress_percent }} hedef ilerlemesi).</div>
-          {% else %}
-            <div class="bg-slate-50 text-slate-600 text-sm rounded-lg px-3 py-2">Sayfa bazında tam hedefte gidiyor.</div>
-          {% endif %}
-          {% if target_progress.target_date_passed %}
-            <p class="text-xs text-rose-600 mt-2">⚠️ Hedef tarih geçti, {{ target_progress.remaining_pages }} sayfa kaldı.</p>
-          {% elif target_progress.required_weekly_pace %}
-            <p class="text-xs text-slate-500 mt-2">Hedefte kalmak için bundan sonra haftada ortalama <strong>{{ target_progress.required_weekly_pace }} sayfa</strong> gerekiyor ({{ target_progress.remaining_pages }} sayfa / {{ target_progress.remaining_days }} gün kaldı).</p>
-          {% endif %}
+        <hr class="divider">
+        <p class="small muted">Bugün itibarıyla olması gereken: <strong>{{ target_progress.expected_pages_by_now }} sayfa</strong> (~{{ target_progress.expected_juz_by_now }}. cüz). Gerçekte pişmiş: <strong>{{ target_progress.actual_pages }} sayfa</strong>.</p>
+        <div class="progress mt-2"><i class="{% if target_progress.target_progress_percent >= 100 %}{% elif target_progress.target_progress_percent >= 80 %}warn{% else %}danger{% endif %}" style="width: {{ target_progress.target_progress_percent }}%"></i></div>
+        <div class="mt-3">
+        {% if target_progress.pages_ahead_behind > 0 %}
+          <div class="alert alert-ok"><svg class="ic"><use href="#i-trend"/></svg><div>Hedeften <strong>{{ target_progress.pages_ahead_behind_abs }} sayfa</strong> önde (%{{ target_progress.target_progress_percent }} hedef ilerlemesi).</div></div>
+        {% elif target_progress.pages_ahead_behind < 0 %}
+          <div class="alert alert-warn"><svg class="ic"><use href="#i-clock"/></svg><div>Hedeften <strong>{{ target_progress.pages_ahead_behind_abs }} sayfa</strong> geride (%{{ target_progress.target_progress_percent }} hedef ilerlemesi).</div></div>
+        {% else %}
+          <div class="alert alert-muted"><svg class="ic"><use href="#i-target"/></svg><div>Sayfa bazında tam hedefte gidiyor.</div></div>
+        {% endif %}
         </div>
+        {% if target_progress.target_date_passed %}
+          <p class="small tone-danger mt-3">Hedef tarih geçti, {{ target_progress.remaining_pages }} sayfa kaldı.</p>
+        {% elif target_progress.required_weekly_pace %}
+          <p class="help mt-3">Hedefte kalmak için haftada ortalama <strong>{{ target_progress.required_weekly_pace }} sayfa</strong> gerekiyor ({{ target_progress.remaining_pages }} sayfa / {{ target_progress.remaining_days }} gün kaldı).</p>
+        {% endif %}
       {% endif %}
     {% else %}
-      <p class="text-sm text-slate-400">Bu öğrenci için hedef tarih belirlenmemiş. <a href="{% url 'students:update' student.pk %}" class="text-brand-700 hover:underline">Şimdi ekle</a></p>
+      <div class="empty"><span class="chip-ic"><svg class="ic"><use href="#i-target"/></svg></span>Bu öğrenci için hedef tarih belirlenmemiş.<br><a href="{% url 'students:update' student.pk %}" class="link">Hedef tarih ekle</a></div>
     {% endif %}
-  </div>
+  </section>
 </div>
 
-<!-- Performans grafiği -->
-<div class="bg-white rounded-xl shadow p-5 mb-6">
-  <h2 class="font-semibold text-slate-800 mb-4">📈 Son 30 Gün Performans Trendi</h2>
-  <canvas id="performanceChart" height="90"></canvas>
-  <p id="noChartData" class="text-sm text-slate-400 text-center py-6 hidden">Henüz grafik oluşturacak kadar veri yok.</p>
-</div>
+<section class="card mb-6">
+  <div class="card-head"><h2 class="h2"><svg class="ic"><use href="#i-trend"/></svg>Son 30 gün performansı</h2></div>
+  <div class="chart-box"><canvas id="performanceChart"></canvas></div>
+  <div id="noChartData" class="empty" hidden><span class="chip-ic"><svg class="ic"><use href="#i-chart"/></svg></span>Grafik için henüz yeterli veri yok.</div>
+</section>
 
-<div class="grid md:grid-cols-2 gap-6 mb-6">
-  <!-- Hafızlık haritası mini önizleme -->
-  <div class="bg-white rounded-xl shadow p-5">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="font-semibold text-slate-800">🗺️ Hafızlık Haritası</h2>
-      <a href="{% url 'memorization:map' student.pk %}" class="text-xs text-brand-700 hover:underline">Tam haritayı gör →</a>
+<div class="grid cols-md-2 mb-6">
+  <section class="card">
+    <div class="card-head">
+      <h2 class="h2"><svg class="ic"><use href="#i-map"/></svg>Hafızlık haritası</h2>
+      <a href="{% url 'memorization:map' student.pk %}" class="link small">Tam harita</a>
     </div>
-    <div class="grid grid-cols-[repeat(auto-fill,minmax(28px,1fr))] gap-1">
+    <div class="juz-mini">
       {% for juz in mini_juz_map %}
-        <div title="{{ juz.juz_number }}. Cüz — {{ juz.tur_count }}. tur" class="aspect-square rounded flex items-center justify-center text-[9px] font-medium
-          {% if juz.status == 'green' %}bg-emerald-500 text-white
-          {% elif juz.status == 'yellow' %}bg-amber-400 text-white
-          {% else %}bg-slate-200 text-slate-400{% endif %}">{{ juz.juz_number }}</div>
+        <div title="{{ juz.juz_number }}. cüz — {{ juz.tur_count }}. tur" class="jz {% if juz.status == 'green' %}ok{% elif juz.status == 'yellow' %}mid{% else %}off{% endif %}">{{ juz.juz_number }}</div>
       {% endfor %}
     </div>
-  </div>
+  </section>
 
-  <!-- Zayıf noktalar -->
-  <div class="bg-white rounded-xl shadow p-5">
-    <h2 class="font-semibold text-slate-800 mb-3">⚠️ Uzun Süredir Tekrar Bekleyen Sayfalar</h2>
+  <section class="card">
+    <div class="card-head"><h2 class="h2"><svg class="ic"><use href="#i-clock"/></svg>Tekrar bekleyen sayfalar</h2></div>
     {% if stale_pages %}
-      <ul class="text-sm divide-y divide-slate-100">
+      <div class="list">
         {% for p in stale_pages %}
-        <li class="py-2 flex items-center justify-between">
-          <span>{{ p.juz_number }}. Cüz — Sayfa <strong>{{ p.page_number }}</strong></span>
-          <span class="text-amber-600 text-xs">{{ p.days_waiting }} gündür bekliyor</span>
-        </li>
+        <div>
+          <span class="grow small">{{ p.juz_number }}. cüz · Sayfa <strong>{{ p.page_number }}</strong></span>
+          <span class="badge badge-warn nodot">{{ p.days_waiting }} gündür bekliyor</span>
+        </div>
         {% endfor %}
-      </ul>
+      </div>
     {% else %}
-      <p class="text-sm text-slate-400">Şu an risk altında sayfa bulunmuyor. 👍</p>
+      <div class="empty"><span class="chip-ic ok"><svg class="ic"><use href="#i-check-circle"/></svg></span>Şu an risk altında sayfa yok.</div>
     {% endif %}
-  </div>
+  </section>
 </div>
 
 {% if notifications %}
-<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-  <p class="font-semibold text-amber-800 mb-2 text-sm">🔔 Aktif Uyarılar</p>
-  <ul class="text-sm text-amber-700 space-y-1">
-    {% for n in notifications %}<li>• {{ n.message }}</li>{% endfor %}
-  </ul>
+<div class="alert alert-warn mb-6">
+  <svg class="ic"><use href="#i-bell"/></svg>
+  <div class="grow">
+    <p class="alert-title">Aktif uyarılar</p>
+    <ul style="margin:6px 0 0;padding-left:18px">
+      {% for n in notifications %}<li class="small">{{ n.message }}</li>{% endfor %}
+    </ul>
+  </div>
 </div>
 {% endif %}
 
-<!-- Zaman çizelgesi -->
-<div class="bg-white rounded-xl shadow p-5">
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="font-semibold text-slate-800">🕒 Zaman Çizelgesi</h2>
-    <a href="{% url 'lessons:list' %}?student={{ student.pk }}" class="text-xs text-brand-700 hover:underline">Tüm ders geçmişini gör →</a>
+<section class="card">
+  <div class="card-head">
+    <h2 class="h2"><svg class="ic"><use href="#i-clock"/></svg>Zaman çizelgesi</h2>
+    <a href="{% url 'lessons:list' %}?student={{ student.pk }}" class="link small">Tüm geçmiş</a>
   </div>
-  <ul class="space-y-4">
+  <ul class="timeline">
     {% for item in timeline %}
-    <li class="flex gap-3">
-      <div class="flex flex-col items-center pt-1">
-        <span class="w-2.5 h-2.5 rounded-full {% if item.kind == 'alert' %}bg-amber-500{% elif item.attendance == 'present' %}bg-emerald-500{% elif item.attendance == 'absent' %}bg-red-500{% else %}bg-slate-400{% endif %}"></span>
-        <span class="w-px flex-1 bg-slate-100"></span>
+    <li>
+      <div class="rail">
+        <span class="pt {% if item.kind == 'alert' %}warn{% elif item.attendance == 'present' %}ok{% elif item.attendance == 'absent' %}danger{% endif %}"></span>
+        <span class="ln"></span>
       </div>
-      <div class="pb-1 text-sm">
-        <p class="text-xs text-slate-400">{{ item.date|date:"d.m.Y" }}</p>
+      <div class="body">
+        <p class="when">{{ item.date|date:"d.m.Y" }}</p>
         {% if item.kind == "alert" %}
-          <p class="text-amber-700"><span class="font-medium">{{ item.type_label }}</span> — {{ item.message }}</p>
+          <p><span class="strong">{{ item.type_label }}</span> — {{ item.message }}</p>
         {% else %}
           {% if item.attendance == 'present' %}
-            <p class="text-slate-700">Ders işlendi
-              {% if item.ham_juz_label %} — Ham: <strong>{{ item.ham_juz_label }}</strong>{% if item.pismis_done %} <span class="text-emerald-600">(Pişmiş ✓{% if item.pismis_page_count %}, {{ item.pismis_page_count }} sf{% endif %})</span>{% endif %}{% endif %}
+            <p>Ders işlendi
+              {% if item.ham_juz_label %} — Ham: <strong>{{ item.ham_juz_label }}</strong>{% if item.pismis_done %} <span class="badge badge-ok nodot">Pişmiş{% if item.pismis_page_count %} · {{ item.pismis_page_count }} sf{% endif %}</span>{% endif %}{% endif %}
               {% if item.revision_juz_labels %} — Tekrar: <strong>{{ item.revision_juz_labels|join:", " }}</strong>{% endif %}
-              {% if item.quality %}, Kalite: {{ item.quality }}{% endif %}</p>
+              {% if item.quality %}· Kalite: {{ item.quality }}{% endif %}</p>
           {% elif item.attendance == 'absent' %}
-            <p class="text-red-600">Derse gelmedi.</p>
+            <p class="tone-danger">Derse gelmedi.</p>
           {% else %}
-            <p class="text-slate-500">İzinli.</p>
+            <p class="muted">İzinli.</p>
           {% endif %}
-          {% if item.notes %}<p class="text-xs text-slate-400 mt-0.5">"{{ item.notes }}"</p>{% endif %}
+          {% if item.notes %}<p class="small faint mt-1">“{{ item.notes }}”</p>{% endif %}
         {% endif %}
       </div>
     </li>
     {% empty %}
-    <li class="text-sm text-slate-400">Henüz kayıt yok.</li>
+    <li><div class="empty-inline">Henüz kayıt yok.</div></li>
     {% endfor %}
   </ul>
-</div>
+</section>
 
 <script>
 (function() {
   const seriesData = JSON.parse('{{ performance_series_json|escapejs }}');
   const canvas = document.getElementById('performanceChart');
   if (!seriesData.length) {
-    canvas.classList.add('hidden');
-    document.getElementById('noChartData').classList.remove('hidden');
+    canvas.parentElement.hidden = true;
+    document.getElementById('noChartData').hidden = false;
     return;
   }
+  const css = getComputedStyle(document.documentElement);
+  const ink = css.getPropertyValue('--ink-3').trim() || '#8b8b94';
+  const grid = css.getPropertyValue('--line').trim() || '#e8e8e5';
+  const accent = css.getPropertyValue('--accent').trim() || '#059669';
+  const warn = css.getPropertyValue('--warn').trim() || '#d97706';
+  Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+  Chart.defaults.color = ink;
   new Chart(canvas, {
     type: 'line',
     data: {
       labels: seriesData.map(d => d.date),
       datasets: [
-        {
-          label: 'Ham (Yeni Ezber)',
-          data: seriesData.map(d => d.memorization),
-          borderColor: '#059669',
-          backgroundColor: 'rgba(5,150,105,0.1)',
-          tension: 0.3,
-        },
-        {
-          label: 'Tekrar (Has)',
-          data: seriesData.map(d => d.revision),
-          borderColor: '#f59e0b',
-          backgroundColor: 'rgba(245,158,11,0.1)',
-          tension: 0.3,
-        },
+        { label: 'Ham (yeni ezber)', data: seriesData.map(d => d.memorization), borderColor: accent, backgroundColor: accent + '1f', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4 },
+        { label: 'Tekrar (has)', data: seriesData.map(d => d.revision), borderColor: warn, backgroundColor: warn + '1f', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4 },
       ],
     },
     options: {
       responsive: true,
-      plugins: { legend: { position: 'bottom' } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } },
+        y: { beginAtZero: true, grid: { color: grid }, border: { display: false }, ticks: { precision: 0 } },
+      },
     },
   });
 })();

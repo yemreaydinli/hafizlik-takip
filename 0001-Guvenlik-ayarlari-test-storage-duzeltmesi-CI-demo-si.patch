@@ -1,0 +1,279 @@
+From f7f90a0ef39928aaa9cda4ded439148573ca205d Mon Sep 17 00:00:00 2001
+From: x <x@x>
+Date: Tue, 29 Sep 2026 09:39:36 +0000
+Subject: [PATCH] Guvenlik ayarlari, test storage duzeltmesi, CI, demo sifre
+ guvenligi
+
+---
+ .env.example                               |  3 +-
+ .github/workflows/ci.yml                   | 36 +++++++++++++++++
+ README.md                                  | 19 +++++----
+ config/settings.py                         | 45 +++++++++++++++++++++-
+ core/management/commands/seed_demo_data.py | 28 +++++++++++---
+ lessons/tests.py                           |  2 +-
+ 6 files changed, 116 insertions(+), 17 deletions(-)
+ create mode 100644 .github/workflows/ci.yml
+
+diff --git a/.env.example b/.env.example
+index 587e238..3058d18 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,5 +1,6 @@
+ # Django
+-DJANGO_SECRET_KEY=change-this-to-a-long-random-string
++# Üretimde ZORUNLU. Üretmek için: python -c "import secrets; print(secrets.token_urlsafe(50))"
++DJANGO_SECRET_KEY=
+ DJANGO_DEBUG=True
+ DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+ DJANGO_CSRF_TRUSTED_ORIGINS=
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..4d86963
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,36 @@
++name: CI
++
++on:
++  push:
++    branches: [main]
++  pull_request:
++
++jobs:
++  test:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-python@v5
++        with:
++          python-version: "3.12"
++          cache: pip
++
++      - name: Bağımlılıkları kur
++        run: pip install -r requirements.txt
++
++      - name: Migration eksik mi kontrol et
++        run: python manage.py makemigrations --check --dry-run
++
++      - name: Django sistem kontrolü
++        run: python manage.py check
++
++      - name: Testleri çalıştır
++        run: python manage.py test
++
++      - name: Üretim ayarlarını doğrula (deploy check)
++        env:
++          DJANGO_DEBUG: "False"
++          DJANGO_SECRET_KEY: ci-only-${{ github.run_id }}-0123456789abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOP
++          DJANGO_ALLOWED_HOSTS: example.com
++        run: python manage.py check --deploy
+diff --git a/README.md b/README.md
+index 4b90580..d091714 100644
+--- a/README.md
++++ b/README.md
+@@ -14,9 +14,8 @@ Sistem Render.com üzerinde yayında: **https://hafizlik-takip-app.onrender.com*
+ > Ücretsiz Render planında uygulama bir süre trafik almayınca uyku moduna geçer; ilk istekte
+ > sayfanın açılması birkaç saniye (bazen ~30 sn) sürebilir, bu normaldir.
+ 
+-Demo giriş bilgileri (kendi ortamınızda `seed_demo_data` komutunu çalıştırdıysanız aynı bilgiler geçerlidir):
+-- Yönetici: `admin` / `admin123`
+-- Öğretici: `ogretici` / `ogretici123`
++> ⚠️ Canlı örnekte artık herkese açık demo şifresi yoktur. Demo hesabı görmek isterseniz kendi
++> ortamınızda `python manage.py seed_demo_data` çalıştırın (şifre rastgele üretilip ekrana yazılır).
+ 
+ ---
+ 
+@@ -88,9 +87,10 @@ python manage.py runserver
+ 
+ Tarayıcıdan `http://127.0.0.1:8000/hesap/giris/` adresine gidin.
+ 
+-Demo giriş bilgileri (`seed_demo_data` komutunu çalıştırdıysanız):
+-- Yönetici: `admin` / `admin123`
+-- Öğretici: `ogretici` / `ogretici123`
++`seed_demo_data` komutu `admin` ve `ogretici` kullanıcılarını **rastgele üretilmiş bir şifreyle**
++oluşturur ve şifreyi ekrana yazar (`--password ...` ile kendiniz de verebilirsiniz). Güvenlik
++nedeniyle `DJANGO_DEBUG=False` iken yalnızca `--force` ile çalışır; gerçek veri bulunan bir
++ortamda çalıştırmayın.
+ 
+ Kendi yönetici hesabınızı oluşturmak isterseniz:
+ ```bash
+@@ -155,7 +155,7 @@ git push -u origin main
+    - **Start Command:** `gunicorn config.wsgi:application`
+    - **Plan:** Free
+ 4. "Environment" sekmesinden şu değişkenleri ekleyin:
+-   - `DJANGO_SECRET_KEY` → rastgele uzun bir metin (örn. `python -c "import secrets; print(secrets.token_urlsafe(50))"` ile üretebilirsiniz)
++   - `DJANGO_SECRET_KEY` → **zorunlu** (yoksa `DEBUG=False` iken uygulama açılmaz); rastgele uzun bir metin (örn. `python -c "import secrets; print(secrets.token_urlsafe(50))"` ile üretebilirsiniz)
+    - `DJANGO_DEBUG` → `False`
+    - `DJANGO_ALLOWED_HOSTS` → `sizin-servis-adiniz.onrender.com`
+    - `DJANGO_CSRF_TRUSTED_ORIGINS` → `https://sizin-servis-adiniz.onrender.com`
+@@ -197,6 +197,11 @@ Sistem responsive olduğu için ek bir mobil uygulamaya gerek yoktur:
+ 
+ ## 5. Önemli Notlar ve Varsayımlar
+ 
++- **Üretim güvenliği:** `DJANGO_DEBUG=False` iken HTTPS yönlendirmesi, güvenli çerezler, HSTS
++  (varsayılan 1 saat; sorun yoksa `DJANGO_HSTS_SECONDS=31536000` yapın), nosniff ve
++  `X-Frame-Options: DENY` otomatik açılır. Kontrol için: `python manage.py check --deploy`.
++- **CI:** `.github/workflows/ci.yml` her push/PR'da migration kontrolü, `check` ve testleri çalıştırır.
++
+ 
+ - Kur'an-ı Kerim toplam sayfa sayısı `settings.TOTAL_QURAN_PAGES = 604` olarak tanımlanmıştır
+   (yaygın 15 satırlı mushaf standardı); farklı bir mushaf kullanıyorsanız bu değeri güncelleyin.
+diff --git a/config/settings.py b/config/settings.py
+index 647baf9..945610d 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -5,6 +5,7 @@ Ortam değişkenleri (.env dosyası) üzerinden yapılandırılır.
+ Yerelde SQLite, üretimde (Render/Railway/Neon/Supabase) DATABASE_URL ile PostgreSQL kullanır.
+ """
+ import os
++import sys
+ from pathlib import Path
+ import dj_database_url
+ from dotenv import load_dotenv
+@@ -12,9 +13,22 @@ from dotenv import load_dotenv
+ BASE_DIR = Path(__file__).resolve().parent.parent
+ load_dotenv(BASE_DIR / ".env")
+ 
+-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-dev-key-CHANGE-ME-IN-PRODUCTION")
+ DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
+ 
++# Üretimde (DEBUG=False) SECRET_KEY ortam değişkeni ZORUNLUDUR; tanımlı değilse
++# uygulama zayıf bir varsayılanla sessizce çalışmak yerine açılışta hata verir.
++_DEV_SECRET_KEY = "django-insecure-dev-key-CHANGE-ME-IN-PRODUCTION"
++SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
++if not SECRET_KEY:
++    if DEBUG:
++        SECRET_KEY = _DEV_SECRET_KEY
++    else:
++        raise RuntimeError(
++            "DJANGO_SECRET_KEY ortam değişkeni tanımlı olmalıdır (DJANGO_DEBUG=False iken)."
++        )
++elif not DEBUG and (SECRET_KEY == _DEV_SECRET_KEY or SECRET_KEY.startswith("change-this")):
++    raise RuntimeError("DJANGO_SECRET_KEY örnek/varsayılan bir değer olamaz; rastgele uzun bir anahtar üretin.")
++
+ ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+ CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+ 
+@@ -104,9 +118,17 @@ USE_TZ = True
+ STATIC_URL = "static/"
+ STATICFILES_DIRS = [BASE_DIR / "static"]
+ STATIC_ROOT = BASE_DIR / "staticfiles"
++RUNNING_TESTS = len(sys.argv) > 1 and sys.argv[1] == "test"
+ STORAGES = {
+     "staticfiles": {
+-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
++        # Testlerde collectstatic çalıştırılmadığı için manifest yoktur; manifest tabanlı
++        # depolama yerine düz depolama kullanılır (aksi halde {% static %} kullanan
++        # şablonlar "Missing staticfiles manifest entry" hatasıyla düşer).
++        "BACKEND": (
++            "django.contrib.staticfiles.storage.StaticFilesStorage"
++            if RUNNING_TESTS
++            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
++        ),
+     },
+ }
+ 
+@@ -119,6 +141,25 @@ LOGIN_URL = "accounts:login"
+ LOGIN_REDIRECT_URL = "core:dashboard"
+ LOGOUT_REDIRECT_URL = "accounts:login"
+ 
++# ---------------------------------------------------------------------------
++# Üretim güvenlik ayarları (yalnızca DEBUG=False iken etkin).
++# Render gibi bir reverse proxy arkasında HTTPS, X-Forwarded-Proto başlığı ile bildirilir.
++# ---------------------------------------------------------------------------
++if not DEBUG:
++    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
++    SECURE_SSL_REDIRECT = os.getenv("DJANGO_SSL_REDIRECT", "True") == "True"
++    SESSION_COOKIE_SECURE = True
++    CSRF_COOKIE_SECURE = True
++    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_HSTS_SECONDS", "3600"))  # sorunsuzsa 31536000'e (1 yıl) çıkarın
++    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
++    SECURE_HSTS_PRELOAD = False
++    SECURE_CONTENT_TYPE_NOSNIFF = True
++    SECURE_REFERRER_POLICY = "same-origin"
++    X_FRAME_OPTIONS = "DENY"
++
++SESSION_COOKIE_HTTPONLY = True
++SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 saat
++
+ # Hafızlık sistem sabitleri
+ TOTAL_QURAN_PAGES = 604
+ PREDICTION_SIMPLE_AVG_DAYS = 30      # İlk N gün boyunca basit ortalama kullanılır
+diff --git a/core/management/commands/seed_demo_data.py b/core/management/commands/seed_demo_data.py
+index 2e39989..e706fa8 100644
+--- a/core/management/commands/seed_demo_data.py
++++ b/core/management/commands/seed_demo_data.py
+@@ -1,8 +1,10 @@
+ """Hızlı test için örnek yönetici, öğretici ve öğrenci verisi oluşturur."""
+ import random
++import secrets
+ from datetime import date, timedelta
+ 
+-from django.core.management.base import BaseCommand
++from django.conf import settings
++from django.core.management.base import BaseCommand, CommandError
+ from django.db import transaction
+ 
+ from accounts.models import User
+@@ -15,15 +17,29 @@ from core.quran import juz_of_page, juz_page_range
+ 
+ 
+ class Command(BaseCommand):
+-    help = "Demo amaçlı yönetici, öğretici ve öğrenci verisi oluşturur (admin/admin123, ogretici/ogretici123)."
++    help = (
++        "Demo amaçlı yönetici, öğretici ve öğrenci verisi oluşturur. Şifreler her çalıştırmada "
++        "rastgele üretilir ve ekrana yazdırılır (veya --password ile verilebilir). "
++        "DEBUG=False iken yalnızca --force ile çalışır."
++    )
++
++    def add_arguments(self, parser):
++        parser.add_argument("--password", help="Demo hesapların ortak şifresi (verilmezse rastgele üretilir).")
++        parser.add_argument("--force", action="store_true", help="DEBUG=False ortamında da çalıştır.")
+ 
+     @transaction.atomic
+     def handle(self, *args, **options):
++        if not settings.DEBUG and not options["force"]:
++            raise CommandError(
++                "Demo verisi üretimde (DEBUG=False) oluşturulmaz. Gerçekten gerekiyorsa --force kullanın."
++            )
++        password = options["password"] or secrets.token_urlsafe(9)
++
+         if not User.objects.filter(username="admin").exists():
+             User.objects.create_superuser(
+-                username="admin", email="admin@example.com", password="admin123", role=User.Role.ADMIN
++                username="admin", email="admin@example.com", password=password, role=User.Role.ADMIN
+             )
+-            self.stdout.write(self.style.SUCCESS("Yönetici oluşturuldu: admin / admin123"))
++            self.stdout.write(self.style.SUCCESS(f"Yönetici oluşturuldu: admin / {password}"))
+ 
+         teacher, created = User.objects.get_or_create(
+             username="ogretici", defaults={
+@@ -32,9 +48,9 @@ class Command(BaseCommand):
+             }
+         )
+         if created:
+-            teacher.set_password("ogretici123")
++            teacher.set_password(password)
+             teacher.save()
+-            self.stdout.write(self.style.SUCCESS("Öğretici oluşturuldu: ogretici / ogretici123"))
++            self.stdout.write(self.style.SUCCESS(f"Öğretici oluşturuldu: ogretici / {password}"))
+ 
+         if not Student.objects.filter(teacher=teacher).exists():
+             student = Student.objects.create(
+diff --git a/lessons/tests.py b/lessons/tests.py
+index a440f83..19bb2bb 100644
+--- a/lessons/tests.py
++++ b/lessons/tests.py
+@@ -171,7 +171,7 @@ class SeedDemoDataTests(TestCase):
+     veri bulamıyordu."""
+ 
+     def test_command_produces_synced_data(self):
+-        call_command("seed_demo_data")
++        call_command("seed_demo_data", force=True)
+ 
+         student = Student.objects.get(full_name="Yusuf Emre")
+         self.assertTrue(MemorizationPage.objects.filter(student=student).exists())
+-- 
+2.43.0
+

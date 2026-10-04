@@ -224,9 +224,10 @@ Sistem responsive olduğu için ek bir mobil uygulamaya gerek yoktur:
   tarafında (`JuzTurCount`) takip edilir; ham tarafı cüz-lineer ilerler (bir cüz bitmeden
   diğerine geçilmez). Kursunuz karışık usul kullanıyorsa bu, mevcut esnekliği koruyacak
   şekilde bilinçli olarak değiştirilmemiştir.
-- Tailwind CSS, hızlı teslimat için CDN üzerinden (`cdn.tailwindcss.com`) kullanılmaktadır.
-  Üretimde daha küçük dosya boyutu isterseniz `django-tailwind` ile derleme adımına geçilebilir;
-  mevcut şablonlar sınıf isimleri aynı kaldığı için uyumludur.
+- Arayüz, harici bir CSS framework'üne bağlı değildir: tüm tasarım `static/css/app.css` içindeki
+  tasarım sistemi (renk/yarıçap değişkenleri, bileşenler, açık/koyu mod, mobil alt gezinme) ile sağlanır;
+  ikonlar `templates/partials/icons.html` içindeki SVG sembol setindendir. Marka rengini değiştirmek için
+  `app.css` başındaki `--accent*` değişkenlerini düzenlemeniz yeterlidir.
 - Raporlar PDF için **reportlab**, Excel için **openpyxl** kütüphaneleriyle sunucu tarafında
   anlık üretilir; ayrı bir dosya depolama servisi gerekmez.
 - Denetim/audit log şu an sınırlıdır — her kayıtta `created_by` alanı var ama kim neyi ne zaman

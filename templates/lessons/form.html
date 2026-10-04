@@ -1,93 +1,104 @@
 {% extends "base.html" %}
-{% block title %}Ders Kaydı{% endblock %}
+{% block title %}Ders kaydı · Hafızlık Takip{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-slate-800 mb-1">{{ student.full_name }}</h1>
-<p class="text-sm text-slate-500 mb-6">{% if lesson %}Ders kaydını düzenle{% else %}Yeni günlük ders kaydı{% endif %}</p>
-
-<div class="bg-white rounded-xl shadow p-6 max-w-3xl">
-  <form method="post">
-    {% csrf_token %}
-    <div class="grid md:grid-cols-3 gap-4 mb-4">
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.date.label }}</label>
-        {{ form.date }}
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.attendance.label }}</label>
-        {{ form.attendance }}
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.quality.label }}</label>
-        {{ form.quality }}
-      </div>
-    </div>
-
-    <div id="ham-fields" class="mb-4">
-      <p class="text-sm font-semibold text-slate-700 mb-2">Ham (Yeni Ezber)</p>
-      <div class="grid md:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_juz.label }}</label>
-          {{ form.ham_juz }}
-          <p class="text-xs text-emerald-600 mt-1 font-medium" id="ham-juz-suggestion-hint"></p>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_start_page.label }}</label>
-          {{ form.ham_start_page }}
-          <p class="text-xs text-slate-400 mt-1" id="ham-start-hint">Cüz seçin</p>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.ham_end_page.label }}</label>
-          {{ form.ham_end_page }}
-          <p class="text-xs text-slate-400 mt-1" id="ham-end-hint">Cüz seçin</p>
-        </div>
-      </div>
-      {% if form.ham_juz.errors %}<p class="text-xs text-red-500 mt-1">{{ form.ham_juz.errors|join:", " }}</p>{% endif %}
-      {% if form.ham_start_page.errors %}<p class="text-xs text-red-500 mt-1">{{ form.ham_start_page.errors|join:", " }}</p>{% endif %}
-      {% if form.ham_end_page.errors %}<p class="text-xs text-red-500 mt-1">{{ form.ham_end_page.errors|join:", " }}</p>{% endif %}
-
-      <div class="mt-3 flex items-center gap-2">
-        {{ form.pismis_done }}
-        <label for="{{ form.pismis_done.id_for_label }}" class="text-sm text-slate-600">{{ form.pismis_done.label }}</label>
-      </div>
-      <p class="text-xs text-slate-400 mt-1">Ham'ın hemen arkasından, bu cüzde daha önce ezberlenmiş eski sayfalar da dinletildiyse işaretleyin.</p>
-
-      <div class="mt-3 max-w-xs">
-        <label for="{{ form.pismis_page_count.id_for_label }}" class="block text-sm text-slate-600 mb-1">{{ form.pismis_page_count.label }}</label>
-        {{ form.pismis_page_count }}
-        {% if form.pismis_page_count.errors %}<p class="text-xs text-red-500 mt-1">{{ form.pismis_page_count.errors|join:", " }}</p>{% endif %}
-      </div>
-    </div>
-
-    <div class="mb-4">
-      <label class="block text-sm font-medium text-slate-600 mb-1">{{ form.notes.label }}</label>
-      {{ form.notes }}
-    </div>
-
-    <div class="mb-4 border-t border-slate-100 pt-4">
-      <p class="text-sm font-semibold text-slate-700 mb-2">Has (Tekrar) — Tekrar Edilen Cüzler</p>
-      <p class="text-xs text-slate-400 mb-3">Bugün tekrar edilen cüzleri seçin. Her seçilen cüzün "has tekrar" sayacı otomatik olarak bir artar.</p>
-      {{ formset.management_form }}
-      <div id="revision-rows" class="space-y-2">
-        {% for rform in formset %}
-        <div class="flex items-center gap-2 revision-row">
-          {{ rform.id }}
-          <div class="flex-1">
-            {{ rform.juz_number }}
-            {{ rform.start_page }}
-            {{ rform.end_page }}
-            {% if rform.juz_number.errors %}<p class="text-xs text-red-500 mt-1">{{ rform.juz_number.errors|join:", " }}</p>{% endif %}
-          </div>
-          {% if rform.DELETE %}<label class="text-xs text-red-500 flex items-center gap-1">{{ rform.DELETE }} Sil</label>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <button type="button" onclick="addRevisionRow()" class="mt-2 text-sm text-brand-700 hover:underline">+ Tekrar edilen cüz ekle</button>
-    </div>
-
-    <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white font-medium px-5 py-2.5 rounded-lg">Kaydet</button>
-    <a href="{% url 'students:detail' student.pk %}" class="ml-2 text-slate-500 text-sm">Vazgeç</a>
-  </form>
+<a href="{% url 'students:detail' student.pk %}" class="back"><svg class="ic ic-sm"><use href="#i-arrow-left"/></svg>{{ student.full_name }}</a>
+<div class="page-head">
+  <div>
+    <h1 class="h1">{% if lesson %}Ders kaydını düzenle{% else %}Yeni ders kaydı{% endif %}</h1>
+    <p class="sub">{{ student.full_name }}</p>
+  </div>
 </div>
+
+<form method="post" class="card card-wide">
+  {% csrf_token %}
+  <div class="field-grid three">
+    <div class="field">
+      <label class="label" for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
+      {{ form.date }}
+      {% if form.date.errors %}<p class="err">{{ form.date.errors|join:", " }}</p>{% endif %}
+    </div>
+    <div class="field">
+      <label class="label" for="{{ form.attendance.id_for_label }}">{{ form.attendance.label }}</label>
+      {{ form.attendance }}
+    </div>
+    <div class="field">
+      <label class="label" for="{{ form.quality.id_for_label }}">{{ form.quality.label }}</label>
+      {{ form.quality }}
+    </div>
+  </div>
+
+  <div id="ham-fields" class="stack" style="margin-top:24px;padding-top:22px;border-top:1px solid var(--line)">
+    <div>
+      <h2 class="h2">Ham (yeni ezber)</h2>
+      <p class="help">Bugün verilen yeni dersin cüzünü ve sayfa aralığını girin.</p>
+    </div>
+    <div class="field-grid three">
+      <div class="field">
+        <label class="label" for="{{ form.ham_juz.id_for_label }}">{{ form.ham_juz.label }}</label>
+        {{ form.ham_juz }}
+        <p class="help ok" id="ham-juz-suggestion-hint"></p>
+      </div>
+      <div class="field">
+        <label class="label" for="{{ form.ham_start_page.id_for_label }}">{{ form.ham_start_page.label }}</label>
+        {{ form.ham_start_page }}
+        <p class="help" id="ham-start-hint">Cüz seçin</p>
+      </div>
+      <div class="field">
+        <label class="label" for="{{ form.ham_end_page.id_for_label }}">{{ form.ham_end_page.label }}</label>
+        {{ form.ham_end_page }}
+        <p class="help" id="ham-end-hint">Cüz seçin</p>
+      </div>
+    </div>
+    {% if form.ham_juz.errors %}<p class="err">{{ form.ham_juz.errors|join:", " }}</p>{% endif %}
+    {% if form.ham_start_page.errors %}<p class="err">{{ form.ham_start_page.errors|join:", " }}</p>{% endif %}
+    {% if form.ham_end_page.errors %}<p class="err">{{ form.ham_end_page.errors|join:", " }}</p>{% endif %}
+
+    <div>
+      <div class="check">
+        {{ form.pismis_done }}
+        <label for="{{ form.pismis_done.id_for_label }}">{{ form.pismis_done.label }}</label>
+      </div>
+      <p class="help" style="margin-top:4px">Ham dersin hemen ardından, bu cüzde daha önce ezberlenmiş eski sayfalar da dinletildiyse işaretleyin.</p>
+    </div>
+
+    <div class="field" style="max-width:320px">
+      <label class="label" for="{{ form.pismis_page_count.id_for_label }}">{{ form.pismis_page_count.label }}</label>
+      {{ form.pismis_page_count }}
+      {% if form.pismis_page_count.errors %}<p class="err">{{ form.pismis_page_count.errors|join:", " }}</p>{% endif %}
+    </div>
+  </div>
+
+  <div style="margin-top:24px;padding-top:22px;border-top:1px solid var(--line)">
+    <h2 class="h2">Has (tekrar) — tekrar edilen cüzler</h2>
+    <p class="help" style="margin-bottom:14px">Bugün tekrar edilen cüzleri seçin. Seçilen her cüzün tekrar sayacı otomatik olarak bir artar.</p>
+    {{ formset.management_form }}
+    <div id="revision-rows" class="stack-sm">
+      {% for rform in formset %}
+      <div class="revision-row">
+        {{ rform.id }}
+        <div class="grow">
+          {{ rform.juz_number }}
+          {{ rform.start_page }}
+          {{ rform.end_page }}
+          {% if rform.juz_number.errors %}<p class="err">{{ rform.juz_number.errors|join:", " }}</p>{% endif %}
+        </div>
+        {% if rform.DELETE %}<label class="check small faint">{{ rform.DELETE }} Sil</label>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" onclick="addRevisionRow()" class="btn btn-ghost btn-sm" style="margin-top:10px"><svg class="ic ic-sm"><use href="#i-plus"/></svg>Tekrar edilen cüz ekle</button>
+  </div>
+
+  <div class="field" style="margin-top:24px;padding-top:22px;border-top:1px solid var(--line)">
+    <label class="label" for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+    {{ form.notes }}
+  </div>
+
+  <div class="actions actions-stack" style="margin-top:24px">
+    <a href="{% url 'students:detail' student.pk %}" class="btn btn-ghost">Vazgeç</a>
+    <button type="submit" class="btn btn-primary">Kaydet</button>
+  </div>
+</form>
 
 <script>
   // Her cüzün kaç sayfadan oluştuğu (30. cüz genelde daha kısadır) — sunucudaki
@@ -166,14 +177,14 @@
     const idx = parseInt(totalForms.value, 10);
     const container = document.getElementById('revision-rows');
     const row = document.createElement('div');
-    row.className = 'flex items-center gap-2 revision-row';
+    row.className = 'revision-row';
     let options = '<option value="">Cüz seçin</option>';
     for (let i = 1; i <= 30; i++) {
       options += `<option value="${i}">${i}. Cüz</option>`;
     }
     row.innerHTML = `
-      <div class="flex-1">
-        <select name="revision_ranges-${idx}-juz_number" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">${options}</select>
+      <div class="grow">
+        <select name="revision_ranges-${idx}-juz_number" class="input" aria-label="Tekrar edilen cüz">${options}</select>
         <input type="hidden" name="revision_ranges-${idx}-start_page">
         <input type="hidden" name="revision_ranges-${idx}-end_page">
       </div>`;

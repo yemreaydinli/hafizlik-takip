@@ -13,7 +13,7 @@ from core.quran import (
 from .models import LessonRecord
 from memorization.models import RevisionRecord
 
-TAILWIND_INPUT = "w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-500 focus:ring-emerald-500 text-sm"
+TAILWIND_INPUT = "input"  # sınıf adı geçmişten kaldı; artık static/css/app.css içindeki .input kullanılır
 
 JUZ_SELECT_CHOICES = [("", "Cüz seçin")] + JUZ_CHOICES
 
@@ -49,7 +49,7 @@ class LessonRecordForm(forms.ModelForm):
             "ham_end_page": forms.NumberInput(attrs={
                 "class": TAILWIND_INPUT, "min": 1, "max": 20, "id": "id_ham_end_local",
             }),
-            "pismis_done": forms.CheckboxInput(attrs={"class": "rounded border-slate-300"}),
+            "pismis_done": forms.CheckboxInput(),
             "pismis_page_count": forms.NumberInput(attrs={
                 "class": TAILWIND_INPUT, "min": 0, "id": "id_pismis_page_count",
             }),

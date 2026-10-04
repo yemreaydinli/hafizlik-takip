@@ -1,28 +1,55 @@
 {% extends "base.html" %}
-{% block title %}Giriş Yap - Hafızlık Takip Sistemi{% endblock %}
+{% load static %}
+{% block title %}Giriş yap · Hafızlık Takip Sistemi{% endblock %}
 {% block auth_content %}
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-800 to-brand-600 px-4">
-  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-    <div class="text-center mb-6">
-      <p class="text-3xl mb-1">📖</p>
-      <h1 class="text-xl font-bold text-slate-800">Hafızlık Takip Sistemi</h1>
-      <p class="text-sm text-slate-500">Akıllı İlerleme Tahmin Platformu</p>
+<div class="auth">
+  <aside class="auth-aside" aria-hidden="true">
+    <div class="brand"><img src="{% static 'img/logo.svg' %}" alt="" width="34" height="34" style="width:34px;height:34px;border-radius:10px">Hafızlık Takip</div>
+    <div>
+      <h2>Hafızlık yolculuğu, tek ekranda.</h2>
+      <ul>
+        <li><span class="chip-ic"><svg class="ic ic-sm"><use href="#i-calendar"/></svg></span>Günlük ders ve devam kaydı</li>
+        <li><span class="chip-ic"><svg class="ic ic-sm"><use href="#i-map"/></svg></span>Cüz bazlı hafızlık haritası</li>
+        <li><span class="chip-ic"><svg class="ic ic-sm"><use href="#i-trend"/></svg></span>Tahmini bitiş tarihi</li>
+      </ul>
     </div>
-    {% if form.errors %}
-      <div class="mb-4 rounded-lg bg-red-100 text-red-700 text-sm px-4 py-3">Kullanıcı adı veya şifre hatalı.</div>
-    {% endif %}
-    <form method="post" class="space-y-4">
-      {% csrf_token %}
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Kullanıcı Adı</label>
-        {{ form.username }}
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-600 mb-1">Şifre</label>
-        {{ form.password }}
-      </div>
-      <button type="submit" class="w-full bg-brand-700 hover:bg-brand-800 text-white font-semibold py-2.5 rounded-lg transition">Giriş Yap</button>
-    </form>
-  </div>
+    <p class="small" style="opacity:.7">Akıllı ilerleme tahmin platformu</p>
+  </aside>
+  <main class="auth-main">
+    <div class="auth-box">
+      <img src="{% static 'img/logo.svg' %}" alt="" class="auth-logo">
+      <h1 class="h1">Tekrar hoş geldiniz</h1>
+      <p class="sub mb-6">Devam etmek için hesabınızla giriş yapın.</p>
+      {% if form.errors %}
+        <div class="alert alert-danger mb-4" role="alert"><svg class="ic"><use href="#i-alert"/></svg><div>Kullanıcı adı veya şifre hatalı.</div></div>
+      {% endif %}
+      <form method="post" class="stack">
+        {% csrf_token %}
+        <div class="field">
+          <label class="label" for="{{ form.username.id_for_label }}">Kullanıcı adı</label>
+          {{ form.username }}
+        </div>
+        <div class="field">
+          <label class="label" for="{{ form.password.id_for_label }}">Şifre</label>
+          <div class="pw">
+            {{ form.password }}
+            <button type="button" class="icon-btn" id="pw-toggle" aria-label="Şifreyi göster"><svg class="ic"><use href="#i-eye"/></svg></button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" style="min-height:46px">Giriş yap</button>
+      </form>
+    </div>
+  </main>
 </div>
+<script>
+  (function () {
+    var btn = document.getElementById('pw-toggle'), input = document.getElementById('{{ form.password.id_for_label }}');
+    if (!btn || !input) return;
+    btn.addEventListener('click', function () {
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-label', show ? 'Şifreyi gizle' : 'Şifreyi göster');
+    });
+  })();
+</script>
 {% endblock %}

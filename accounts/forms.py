@@ -7,11 +7,13 @@ class StyledAuthenticationForm(AuthenticationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["username"].widget.attrs.update({
-            "class": "w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:border-emerald-500 focus:ring-emerald-500",
+            "class": "input",
+            "autocomplete": "username",
             "placeholder": "Kullanıcı adı",
         })
         self.fields["password"].widget.attrs.update({
-            "class": "w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:border-emerald-500 focus:ring-emerald-500",
+            "class": "input",
+            "autocomplete": "current-password",
             "placeholder": "Şifre",
         })
 

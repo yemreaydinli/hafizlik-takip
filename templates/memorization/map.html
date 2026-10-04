@@ -1,73 +1,67 @@
 {% extends "base.html" %}
-{% block title %}Hafızlık Haritası - {{ student.full_name }}{% endblock %}
+{% block title %}Hafızlık haritası · {{ student.full_name }}{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+<a href="{% url 'students:detail' student.pk %}" class="back"><svg class="ic ic-sm"><use href="#i-arrow-left"/></svg>{{ student.full_name }}</a>
+<div class="page-head">
   <div>
-    <h1 class="text-2xl font-bold text-slate-800">🗺️ Görsel Hafızlık Haritası (Cüz Bazlı)</h1>
-    <p class="text-sm text-slate-500">{{ student.full_name }} — %{{ summary.progress_percent }} tamamlandı</p>
+    <h1 class="h1">Hafızlık haritası</h1>
+    <p class="sub">{{ student.full_name }} · %{{ summary.progress_percent }} tamamlandı</p>
   </div>
-  <a href="{% url 'students:detail' student.pk %}" class="text-sm text-brand-700 hover:underline">← Öğrenci sayfasına dön</a>
 </div>
 
-<div class="flex flex-wrap gap-4 mb-6 text-sm">
-  <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-emerald-500 inline-block"></span> Tamamlandı</span>
-  <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-amber-400 inline-block"></span> Tekrar Gerekiyor</span>
-  <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-slate-200 inline-block"></span> Çalışılmadı</span>
-</div>
-
-<div class="bg-white rounded-xl shadow p-4 mb-6">
-  <div class="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-2">
+<section class="card mb-6">
+  <div class="legend mb-4">
+    <span><i class="sw ok"></i>Tamamlandı</span>
+    <span><i class="sw mid"></i>Tekrar gerekiyor</span>
+    <span><i class="sw off"></i>Çalışılmadı</span>
+  </div>
+  <div class="juz-map">
     {% for juz in juz_map %}
-      <div title="{{ juz.juz_number }}. Cüz — Sayfa {{ juz.page_range }} — %{{ juz.progress_percent }} tamamlandı"
-           class="rounded-lg p-2 flex flex-col items-center justify-center text-center
-             {% if juz.status == 'green' %}bg-emerald-500 text-white
-             {% elif juz.status == 'yellow' %}bg-amber-400 text-white
-             {% else %}bg-slate-200 text-slate-500{% endif %}">
-        <span class="text-sm font-bold">{{ juz.juz_number }}. Cüz</span>
-        <span class="text-[10px] opacity-90">Sf. {{ juz.page_range }}</span>
-        {% if juz.tur_count > 0 %}
-          <span class="mt-1 text-[10px] font-semibold bg-white/25 rounded-full px-2 py-0.5">{{ juz.tur_count }}. tur</span>
-        {% endif %}
+      <div title="{{ juz.juz_number }}. cüz — Sayfa {{ juz.page_range }} — %{{ juz.progress_percent }} tamamlandı" class="jz {% if juz.status == 'green' %}ok{% elif juz.status == 'yellow' %}mid{% else %}off{% endif %}">
+        <b>{{ juz.juz_number }}. cüz</b>
+        <span>Sf. {{ juz.page_range }}</span>
+        {% if juz.tur_count > 0 %}<em>{{ juz.tur_count }}. tur</em>{% endif %}
       </div>
     {% endfor %}
   </div>
-</div>
+</section>
 
-<div class="bg-white rounded-xl shadow p-5 max-w-2xl">
-  <h2 class="font-semibold text-slate-800 mb-1">📥 Başlangıç Durumu Aktarımı</h2>
-  <p class="text-xs text-slate-500 mb-4">
-    Öğrenci sisteme kaydedilmeden <strong>önce</strong> zaten ezberlediği veya tekrar ettiği cüzler varsa,
-    aşağıdan toplu olarak işaretleyin. Aksi halde Akıllı Tahmin Motoru bu cüzleri "çalışılmadı" sayıp
-    tahmini bitiş tarihini olduğundan çok daha uzak gösterir.
+<form method="post" class="card card-medium">
+  {% csrf_token %}
+  <div class="card-head" style="margin-bottom:6px"><h2 class="h2"><svg class="ic"><use href="#i-download"/></svg>Başlangıç durumunu aktar</h2></div>
+  <p class="small muted" style="margin-bottom:18px">
+    Öğrenci sisteme kaydedilmeden <strong>önce</strong> ezberlediği veya tekrar ettiği cüzleri toplu işaretleyin.
+    Aksi halde tahmin motoru bu cüzleri çalışılmamış sayar ve bitiş tarihini olduğundan uzak gösterir.
   </p>
-  <form method="post" class="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
-    {% csrf_token %}
-    <div>
-      <label class="block text-xs font-medium text-slate-600 mb-1">Başlangıç Cüzü</label>
-      <select name="start_juz" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-        {% for juz in juz_map %}<option value="{{ juz.juz_number }}">{{ juz.juz_number }}. Cüz</option>{% endfor %}
+  <div class="field-grid two">
+    <div class="field">
+      <label class="label" for="start_juz">Başlangıç cüzü</label>
+      <select name="start_juz" id="start_juz" required class="input">
+        {% for juz in juz_map %}<option value="{{ juz.juz_number }}">{{ juz.juz_number }}. cüz</option>{% endfor %}
       </select>
     </div>
-    <div>
-      <label class="block text-xs font-medium text-slate-600 mb-1">Bitiş Cüzü</label>
-      <select name="end_juz" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-        {% for juz in juz_map %}<option value="{{ juz.juz_number }}">{{ juz.juz_number }}. Cüz</option>{% endfor %}
+    <div class="field">
+      <label class="label" for="end_juz">Bitiş cüzü</label>
+      <select name="end_juz" id="end_juz" required class="input">
+        {% for juz in juz_map %}<option value="{{ juz.juz_number }}">{{ juz.juz_number }}. cüz</option>{% endfor %}
       </select>
     </div>
-    <div>
-      <label class="block text-xs font-medium text-slate-600 mb-1">Durum</label>
-      <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+    <div class="field md-span-2">
+      <label class="label" for="status">Durum</label>
+      <select name="status" id="status" class="input">
         {% for value, label in status_choices %}
           {% if value != 'gray' %}<option value="{{ value }}">{{ label }}</option>{% endif %}
         {% endfor %}
         <option value="gray">Çalışılmadı (sıfırla)</option>
       </select>
     </div>
-    <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2.5 rounded-lg">Uygula</button>
-  </form>
-  <p class="text-xs text-slate-400 mt-3">
-    Örnek: Öğrenci sistemi kullanmaya başlamadan önce toplam 15 cüz ezberlemiş ve düzenli tekrar ediyorsa,
-    1. Cüz - 15. Cüz aralığını "Tamamlandı" olarak işaretleyin. Sadece ezberlemiş ama henüz tekrarı oturmamışsa "Tekrar Gerekiyor" seçin.
+  </div>
+  <div class="actions actions-stack" style="margin-top:22px">
+    <button type="submit" class="btn btn-primary">Uygula</button>
+  </div>
+  <p class="help" style="margin-top:14px">
+    Örnek: Öğrenci sistemi kullanmadan önce 15 cüz ezberlemiş ve düzenli tekrar ediyorsa 1–15. cüz aralığını “Tamamlandı” yapın.
+    Ezberlemiş ama tekrarı oturmamışsa “Tekrar gerekiyor” seçin.
   </p>
-</div>
+</form>
 {% endblock %}

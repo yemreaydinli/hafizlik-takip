@@ -1,34 +1,37 @@
 {% extends "base.html" %}
-{% block title %}Uyarılar{% endblock %}
+{% block title %}Uyarılar · Hafızlık Takip{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-slate-800 mb-6">🔔 Akıllı Uyarılar</h1>
-<div class="bg-white rounded-xl shadow divide-y divide-slate-100">
-  {% for n in notifications %}
-  <div class="px-4 py-4 flex items-start justify-between gap-4 {% if not n.is_read %}bg-amber-50{% endif %}">
-    <div>
-      <span class="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 mb-1">{{ n.get_type_display }}</span>
-      <p class="text-sm text-slate-700">{{ n.message }}</p>
-      <p class="text-xs text-slate-400 mt-1">
-        <a href="{% url 'students:detail' n.student.pk %}" class="hover:text-brand-700">{{ n.student.full_name }}</a>
-        · {{ n.created_at|date:"d.m.Y H:i" }}
-      </p>
+<div class="page-head">
+  <div><h1 class="h1">Uyarılar</h1><p class="sub">Duraklama, devamsızlık ve hedef sapması bildirimleri.</p></div>
+</div>
+<div class="card card-flush">
+  {% if notifications %}
+  <div class="list" style="padding:0 18px">
+    {% for n in notifications %}
+    <div style="align-items:flex-start;padding:16px 0">
+      <span class="chip-ic {% if n.is_read %}{% else %}warn{% endif %}"><svg class="ic ic-sm"><use href="#i-bell"/></svg></span>
+      <div class="grow">
+        <div class="row row-wrap" style="gap:8px">
+          <span class="badge badge-warn nodot">{{ n.get_type_display }}</span>
+          {% if not n.is_read %}<span class="badge badge-info nodot">Yeni</span>{% endif %}
+        </div>
+        <p class="small" style="margin-top:6px">{{ n.message }}</p>
+        <p class="xs faint" style="margin-top:4px">
+          <a href="{% url 'students:detail' n.student.pk %}" class="link">{{ n.student.full_name }}</a> · {{ n.created_at|date:"d.m.Y H:i" }}
+        </p>
+      </div>
+      {% if not n.is_read %}
+      <form method="post" action="{% url 'notifications:mark_read' n.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-ghost btn-sm" title="Okundu işaretle"><svg class="ic ic-sm"><use href="#i-check"/></svg><span class="hide-mobile">Okundu</span></button>
+      </form>
+      {% endif %}
     </div>
-    {% if not n.is_read %}
-    <form method="post" action="{% url 'notifications:mark_read' n.pk %}">
-      {% csrf_token %}
-      <button class="text-xs text-brand-700 hover:underline whitespace-nowrap">Okundu işaretle</button>
-    </form>
-    {% endif %}
+    {% endfor %}
   </div>
-  {% empty %}
-  <div class="px-4 py-8 text-center text-slate-400 text-sm">Herhangi bir bildirim bulunmuyor.</div>
-  {% endfor %}
+  {% else %}
+  <div class="empty" style="padding:56px 16px"><span class="chip-ic ok"><svg class="ic"><use href="#i-check-circle"/></svg></span>Bildirim yok. Her şey yolunda.</div>
+  {% endif %}
 </div>
-{% if is_paginated %}
-<div class="mt-4 flex gap-2 text-sm">
-  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-1 rounded border border-slate-300">Önceki</a>{% endif %}
-  <span class="px-3 py-1">Sayfa {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="px-3 py-1 rounded border border-slate-300">Sonraki</a>{% endif %}
-</div>
-{% endif %}
+{% include "partials/pager.html" %}
 {% endblock %}

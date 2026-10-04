@@ -1,11 +1,14 @@
 {% extends "base.html" %}
+{% block title %}Ders kaydını sil · Hafızlık Takip{% endblock %}
 {% block content %}
-<div class="bg-white rounded-xl shadow p-6 max-w-md">
-  <p class="mb-4">{{ lesson.student.full_name }} - {{ lesson.date|date:"d.m.Y" }} tarihli ders kaydını silmek istediğinize emin misiniz?</p>
-  <form method="post" class="flex gap-3">
+<div class="card card-narrow" style="text-align:center">
+  <span class="chip-ic danger" style="width:48px;height:48px;border-radius:16px;margin:0 auto 14px"><svg class="ic ic-lg"><use href="#i-trash"/></svg></span>
+  <h1 class="h2" style="font-size:18px">Ders kaydı silinsin mi?</h1>
+  <p class="muted mt-2"><strong>{{ lesson.student.full_name }}</strong> için {{ lesson.date|date:"d.m.Y" }} tarihli ders kaydı silinir.</p>
+  <form method="post" class="actions actions-stack mt-4" style="justify-content:center;margin-top:22px">
     {% csrf_token %}
-    <button class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">Evet, Sil</button>
-    <a href="{% url 'students:detail' lesson.student.pk %}" class="px-4 py-2 rounded-lg border border-slate-300">Vazgeç</a>
+    <a href="{% url 'students:detail' lesson.student.pk %}" class="btn btn-secondary">Vazgeç</a>
+    <button class="btn btn-danger">Evet, sil</button>
   </form>
 </div>
 {% endblock %}

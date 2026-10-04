@@ -1,0 +1,552 @@
+From 78a9894610c8cb815bebf69d385ca47db88d345c Mon Sep 17 00:00:00 2001
+From: x <x@x>
+Date: Thu, 1 Oct 2026 08:15:56 +0000
+Subject: [PATCH 2/2] Yedek indirme sayfasi ve gecikmis yedek uyarisi
+
+---
+ .env.example                    |   3 +
+ README.md                       |   5 ++
+ config/settings.py              |   5 ++
+ core/admin.py                   |   8 +-
+ core/backup.py                  |  66 ++++++++++++++++
+ core/context_processors.py      |  10 +++
+ core/migrations/0001_initial.py |  32 ++++++++
+ core/models.py                  |  21 ++++-
+ core/tests.py                   | 133 +++++++++++++++++++++++++++++++-
+ core/urls.py                    |   1 +
+ core/views.py                   |  24 ++++++
+ templates/base.html             |  18 ++++-
+ templates/core/backup.html      |  62 +++++++++++++++
+ 13 files changed, 383 insertions(+), 5 deletions(-)
+ create mode 100644 core/backup.py
+ create mode 100644 core/migrations/0001_initial.py
+ create mode 100644 templates/core/backup.html
+
+diff --git a/.env.example b/.env.example
+index 3058d18..e3b4060 100644
+--- a/.env.example
++++ b/.env.example
+@@ -9,3 +9,6 @@ DJANGO_CSRF_TRUSTED_ORIGINS=
+ # Neon.tech veya Supabase üzerinden alacağınız PostgreSQL bağlantı adresini buraya yapıştırın:
+ # DATABASE_URL=postgresql://kullanici:sifre@host:5432/veritabani?sslmode=require
+ DATABASE_URL=
++
++# Yedek bu kadar gün alınmazsa yönetici ekranında kırmızı uyarı çıkar (varsayılan 7)
++BACKUP_WARNING_DAYS=7
+diff --git a/README.md b/README.md
+index d091714..a2a00ae 100644
+--- a/README.md
++++ b/README.md
+@@ -200,6 +200,11 @@ Sistem responsive olduğu için ek bir mobil uygulamaya gerek yoktur:
+ - **Üretim güvenliği:** `DJANGO_DEBUG=False` iken HTTPS yönlendirmesi, güvenli çerezler, HSTS
+   (varsayılan 1 saat; sorun yoksa `DJANGO_HSTS_SECONDS=31536000` yapın), nosniff ve
+   `X-Frame-Options: DENY` otomatik açılır. Kontrol için: `python manage.py check --deploy`.
++- **Yedekleme:** Yönetici, sol menüdeki **💾 Yedekleme** sayfasından tüm veriyi tek bir JSON dosyası olarak
++  indirebilir. Son yedek `BACKUP_WARNING_DAYS` günden (varsayılan 7) eskiyse veya hiç yedek alınmamışsa
++  (ve sistemde öğrenci varsa) yönetici her sayfanın üstünde kırmızı uyarı görür. Geri yükleme:
++  boş veritabanında `python manage.py migrate` ardından `python manage.py loaddata yedek.json`.
++  Yedek dosyası şifre özetlerini de içerir; gizli tutulmalıdır.
+ - **CI:** `.github/workflows/ci.yml` her push/PR'da migration kontrolü, `check` ve testleri çalıştırır.
+ 
+ 
+diff --git a/config/settings.py b/config/settings.py
+index 945610d..bdec07a 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -77,6 +77,7 @@ TEMPLATES = [
+                 "django.contrib.auth.context_processors.auth",
+                 "django.contrib.messages.context_processors.messages",
+                 "core.context_processors.notifications_context",
++                "core.context_processors.backup_context",
+             ],
+         },
+     },
+@@ -160,6 +161,10 @@ if not DEBUG:
+ SESSION_COOKIE_HTTPONLY = True
+ SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 saat
+ 
++# Yedek alınmadan bu kadar gün geçerse yönetici ekranlarında kırmızı uyarı çıkar.
++# Neon planınızın geri dönüş süresine göre düşürün (örn. 3).
++BACKUP_WARNING_DAYS = int(os.getenv("BACKUP_WARNING_DAYS", "7"))
++
+ # Hafızlık sistem sabitleri
+ TOTAL_QURAN_PAGES = 604
+ PREDICTION_SIMPLE_AVG_DAYS = 30      # İlk N gün boyunca basit ortalama kullanılır
+diff --git a/core/admin.py b/core/admin.py
+index 8c38f3f..09b73c2 100644
+--- a/core/admin.py
++++ b/core/admin.py
+@@ -1,3 +1,9 @@
+ from django.contrib import admin
+ 
+-# Register your models here.
++from .models import BackupLog
++
++
++@admin.register(BackupLog)
++class BackupLogAdmin(admin.ModelAdmin):
++    list_display = ("created_at", "created_by", "record_count", "size_bytes")
++    readonly_fields = ("created_at", "created_by", "size_bytes", "record_count")
+diff --git a/core/backup.py b/core/backup.py
+new file mode 100644
+index 0000000..35e7a77
+--- /dev/null
++++ b/core/backup.py
+@@ -0,0 +1,66 @@
++"""Veritabanı yedeği üretimi ve "yedek gecikti mi?" kontrolü."""
++import io
++import json
++from datetime import timedelta
++
++from django.conf import settings
++from django.core.management import call_command
++from django.utils import timezone
++
++from .models import BackupLog
++
++# Yedeğe girmeyen, geri yüklemede sorun çıkarabilecek veya gereksiz tablolar.
++EXCLUDED = [
++    "contenttypes",
++    "auth.permission",
++    "sessions",
++    "admin.logentry",
++    "core.backuplog",
++]
++
++
++def build_backup():
++    """Tüm uygulama verisini JSON olarak döndürür: (bytes, kayıt_sayısı)."""
++    buf = io.StringIO()
++    call_command(
++        "dumpdata",
++        exclude=EXCLUDED,
++        use_natural_foreign_keys=True,
++        use_natural_primary_keys=True,
++        indent=1,
++        stdout=buf,
++    )
++    text = buf.getvalue()
++    return text.encode("utf-8"), len(json.loads(text))
++
++
++def backup_warning_days():
++    return int(getattr(settings, "BACKUP_WARNING_DAYS", 7))
++
++
++def get_backup_status():
++    """
++    Yedek durumunu döndürür:
++      last        -> son BackupLog (yoksa None)
++      days_since  -> son yedekten beri geçen gün (yedek yoksa None)
++      has_data    -> sistemde öğrenci verisi var mı
++      warn        -> uyarı gösterilmeli mi
++      limit_days  -> uyarı eşiği
++    Veri yokken (hiç öğrenci eklenmemişken) uyarı verilmez.
++    """
++    from students.models import Student
++
++    limit = backup_warning_days()
++    last = BackupLog.objects.first()
++    has_data = Student.objects.exists()
++    days_since = None
++    if last:
++        days_since = (timezone.now() - last.created_at) // timedelta(days=1)
++    overdue = last is None or days_since >= limit
++    return {
++        "last": last,
++        "days_since": days_since,
++        "has_data": has_data,
++        "warn": has_data and overdue,
++        "limit_days": limit,
++    }
+diff --git a/core/context_processors.py b/core/context_processors.py
+index dd34243..75a96e3 100644
+--- a/core/context_processors.py
++++ b/core/context_processors.py
+@@ -6,3 +6,13 @@ def notifications_context(request):
+     if not request.user.is_admin_role:
+         qs = qs.filter(teacher=request.user)
+     return {"unread_notifications_count": qs.count(), "unread_notifications": qs[:5]}
++
++
++def backup_context(request):
++    """Yalnızca yönetici için: yedek gecikmişse tüm sayfalarda gösterilecek uyarı verisi."""
++    user = getattr(request, "user", None)
++    if not (user and user.is_authenticated and user.is_admin_role):
++        return {}
++    from .backup import get_backup_status
++    status = get_backup_status()
++    return {"backup_status": status, "backup_warning": status["warn"]}
+diff --git a/core/migrations/0001_initial.py b/core/migrations/0001_initial.py
+new file mode 100644
+index 0000000..a6228d7
+--- /dev/null
++++ b/core/migrations/0001_initial.py
+@@ -0,0 +1,32 @@
++# Generated by Django 6.0.7 on 2026-10-01 08:14
++
++import django.db.models.deletion
++from django.conf import settings
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++
++    initial = True
++
++    dependencies = [
++        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
++    ]
++
++    operations = [
++        migrations.CreateModel(
++            name='BackupLog',
++            fields=[
++                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
++                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Yedek zamanı')),
++                ('size_bytes', models.PositiveIntegerField(default=0, verbose_name='Dosya boyutu (bayt)')),
++                ('record_count', models.PositiveIntegerField(default=0, verbose_name='Kayıt sayısı')),
++                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL, verbose_name='Yedeği alan')),
++            ],
++            options={
++                'verbose_name': 'Yedek kaydı',
++                'verbose_name_plural': 'Yedek kayıtları',
++                'ordering': ['-created_at'],
++            },
++        ),
++    ]
+diff --git a/core/models.py b/core/models.py
+index 71a8362..2a47c00 100644
+--- a/core/models.py
++++ b/core/models.py
+@@ -1,3 +1,22 @@
++from django.conf import settings
+ from django.db import models
+ 
+-# Create your models here.
++
++class BackupLog(models.Model):
++    """Yöneticinin indirdiği yedeklerin kaydı (yedek dosyasının kendisi sunucuda saklanmaz)."""
++
++    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yedek zamanı")
++    created_by = models.ForeignKey(
++        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
++        related_name="+", verbose_name="Yedeği alan",
++    )
++    size_bytes = models.PositiveIntegerField(default=0, verbose_name="Dosya boyutu (bayt)")
++    record_count = models.PositiveIntegerField(default=0, verbose_name="Kayıt sayısı")
++
++    class Meta:
++        ordering = ["-created_at"]
++        verbose_name = "Yedek kaydı"
++        verbose_name_plural = "Yedek kayıtları"
++
++    def __str__(self):
++        return f"Yedek {self.created_at:%d.%m.%Y %H:%M}"
+diff --git a/core/tests.py b/core/tests.py
+index 7ce503c..ff776f8 100644
+--- a/core/tests.py
++++ b/core/tests.py
+@@ -1,3 +1,132 @@
+-from django.test import TestCase
++import json
++from datetime import date, timedelta
+ 
+-# Create your tests here.
++from django.core.management import call_command
++from django.test import TestCase, override_settings
++from django.urls import reverse
++from django.utils import timezone
++
++from accounts.models import User
++from core.backup import get_backup_status
++from core.models import BackupLog
++from students.models import Student
++
++
++class BackupTestBase(TestCase):
++    @classmethod
++    def setUpTestData(cls):
++        cls.admin = User.objects.create_user("yonetici", password="x", role=User.Role.ADMIN)
++        cls.teacher = User.objects.create_user("hoca", password="x", role=User.Role.TEACHER)
++
++    def add_student(self):
++        return Student.objects.create(full_name="Test Öğrenci", start_date=date.today(), teacher=self.teacher)
++
++    def make_old_backup(self, days):
++        log = BackupLog.objects.create(created_by=self.admin)
++        BackupLog.objects.filter(pk=log.pk).update(created_at=timezone.now() - timedelta(days=days))
++
++
++class BackupStatusTests(BackupTestBase):
++    def test_no_warning_when_no_data(self):
++        self.assertFalse(get_backup_status()["warn"])
++
++    def test_warning_when_data_exists_and_never_backed_up(self):
++        self.add_student()
++        s = get_backup_status()
++        self.assertTrue(s["warn"])
++        self.assertIsNone(s["last"])
++
++    def test_no_warning_with_recent_backup(self):
++        self.add_student()
++        self.make_old_backup(2)
++        self.assertFalse(get_backup_status()["warn"])
++
++    @override_settings(BACKUP_WARNING_DAYS=7)
++    def test_warning_when_backup_too_old(self):
++        self.add_student()
++        self.make_old_backup(8)
++        s = get_backup_status()
++        self.assertTrue(s["warn"])
++        self.assertEqual(s["days_since"], 8)
++
++    @override_settings(BACKUP_WARNING_DAYS=3)
++    def test_threshold_is_configurable(self):
++        self.add_student()
++        self.make_old_backup(4)
++        self.assertTrue(get_backup_status()["warn"])
++
++
++class BackupViewTests(BackupTestBase):
++    def test_anonymous_redirected_to_login(self):
++        r = self.client.get(reverse("core:backup"))
++        self.assertEqual(r.status_code, 302)
++        r = self.client.post(reverse("core:backup"))
++        self.assertEqual(r.status_code, 302)
++        self.assertEqual(BackupLog.objects.count(), 0)
++
++    def test_teacher_forbidden(self):
++        self.client.force_login(self.teacher)
++        self.assertEqual(self.client.get(reverse("core:backup")).status_code, 403)
++        self.assertEqual(self.client.post(reverse("core:backup")).status_code, 403)
++        self.assertEqual(BackupLog.objects.count(), 0)
++
++    def test_get_does_not_create_backup(self):
++        self.client.force_login(self.admin)
++        self.assertEqual(self.client.get(reverse("core:backup")).status_code, 200)
++        self.assertEqual(BackupLog.objects.count(), 0)
++
++    def test_post_downloads_valid_json_and_logs(self):
++        self.add_student()
++        self.client.force_login(self.admin)
++        r = self.client.post(reverse("core:backup"))
++        self.assertEqual(r.status_code, 200)
++        self.assertIn("attachment", r["Content-Disposition"])
++        self.assertIn("hafizlik-yedek-", r["Content-Disposition"])
++        data = json.loads(r.content)
++        models_in_backup = {row["model"] for row in data}
++        self.assertIn("students.student", models_in_backup)
++        self.assertIn("accounts.user", models_in_backup)
++        self.assertNotIn("sessions.session", models_in_backup)
++        self.assertNotIn("core.backuplog", models_in_backup)
++        log = BackupLog.objects.get()
++        self.assertEqual(log.created_by, self.admin)
++        self.assertEqual(log.record_count, len(data))
++
++    def test_backup_can_be_restored(self):
++        student = self.add_student()
++        self.client.force_login(self.admin)
++        data = self.client.post(reverse("core:backup")).content
++        Student.objects.all().delete()
++        self.assertEqual(Student.objects.count(), 0)
++        import tempfile, os
++        with tempfile.NamedTemporaryFile("wb", suffix=".json", delete=False) as f:
++            f.write(data)
++            path = f.name
++        try:
++            call_command("loaddata", path, verbosity=0)
++        finally:
++            os.unlink(path)
++        restored = Student.objects.get()
++        self.assertEqual(restored.pk, student.pk)
++        self.assertEqual(restored.full_name, "Test Öğrenci")
++
++
++class BackupBannerTests(BackupTestBase):
++    def test_banner_shown_to_admin_when_overdue(self):
++        self.add_student()
++        self.client.force_login(self.admin)
++        r = self.client.get(reverse("core:dashboard"))
++        self.assertContains(r, "YEDEK ALINMADI")
++
++    def test_banner_hidden_from_teacher(self):
++        self.add_student()
++        self.client.force_login(self.teacher)
++        r = self.client.get(reverse("core:dashboard"))
++        self.assertNotContains(r, "YEDEK ALINMADI")
++
++    def test_banner_gone_after_backup(self):
++        self.add_student()
++        self.client.force_login(self.admin)
++        self.client.post(reverse("core:backup"))
++        r = self.client.get(reverse("core:dashboard"))
++        self.assertNotContains(r, "YEDEK ALINMADI")
+diff --git a/core/urls.py b/core/urls.py
+index 4da2043..d1cd81c 100644
+--- a/core/urls.py
++++ b/core/urls.py
+@@ -5,4 +5,5 @@ app_name = "core"
+ 
+ urlpatterns = [
+     path("", views.DashboardView.as_view(), name="dashboard"),
++    path("yedek/", views.BackupView.as_view(), name="backup"),
+ ]
+diff --git a/core/views.py b/core/views.py
+index 5263f8d..54036f3 100644
+--- a/core/views.py
++++ b/core/views.py
+@@ -1,4 +1,5 @@
+ from django.contrib.auth.mixins import LoginRequiredMixin
++from django.http import HttpResponse
+ from django.db.models import Sum
+ from django.utils import timezone
+ from django.views.generic import TemplateView
+@@ -8,6 +9,9 @@ from memorization.models import MemorizationPage
+ from notifications.models import Notification
+ from predictions.models import PredictionHistory
+ from students.models import Student
++from accounts.views import AdminRequiredMixin
++from .backup import build_backup, get_backup_status
++from .models import BackupLog
+ 
+ 
+ class DashboardView(LoginRequiredMixin, TemplateView):
+@@ -65,3 +69,23 @@ class DashboardView(LoginRequiredMixin, TemplateView):
+             "alerts": alerts,
+         })
+         return ctx
++
++
++class BackupView(AdminRequiredMixin, TemplateView):
++    """Yedek durumunu gösterir (GET) ve yedeği indirtir (POST). Yalnızca yönetici."""
++    template_name = "core/backup.html"
++
++    def get_context_data(self, **kwargs):
++        ctx = super().get_context_data(**kwargs)
++        ctx["status"] = get_backup_status()
++        ctx["recent_backups"] = BackupLog.objects.select_related("created_by")[:10]
++        return ctx
++
++    def post(self, request, *args, **kwargs):
++        data, count = build_backup()
++        BackupLog.objects.create(created_by=request.user, size_bytes=len(data), record_count=count)
++        filename = f"hafizlik-yedek-{timezone.localtime():%Y-%m-%d-%H%M}.json"
++        response = HttpResponse(data, content_type="application/json; charset=utf-8")
++        response["Content-Disposition"] = f'attachment; filename="{filename}"'
++        response["Cache-Control"] = "no-store"
++        return response
+diff --git a/templates/base.html b/templates/base.html
+index 0af5200..1f7dcf1 100644
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -55,6 +55,7 @@
+       {% if user.is_admin_role %}
+       <p class="pt-4 pb-1 px-3 text-xs uppercase tracking-wide text-emerald-300">Yönetim</p>
+       <a href="{% url 'accounts:teacher_list' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.app_name == 'accounts' %}bg-brand-700{% endif %}">👥 Öğreticiler</a>
++      <a href="{% url 'core:backup' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700 {% if request.resolver_match.url_name == 'backup' %}bg-brand-700{% endif %}">💾 Yedekleme{% if backup_warning %}<span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">!</span>{% endif %}</a>
+       <a href="/admin/" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-brand-700">⚙️ Django Admin</a>
+       {% endif %}
+     </nav>
+@@ -80,7 +81,8 @@
+     <a href="{% url 'lessons:list' %}" class="block py-2">📝 Ders Kayıtları</a>
+     <a href="{% url 'notifications:list' %}" class="block py-2">🔔 Uyarılar {% if unread_notifications_count %}({{ unread_notifications_count }}){% endif %}</a>
+     <a href="{% url 'reports:index' %}" class="block py-2">📊 Raporlar</a>
+-    {% if user.is_admin_role %}<a href="{% url 'accounts:teacher_list' %}" class="block py-2">👥 Öğreticiler</a>{% endif %}
++    {% if user.is_admin_role %}<a href="{% url 'accounts:teacher_list' %}" class="block py-2">👥 Öğreticiler</a>
++    <a href="{% url 'core:backup' %}" class="block py-2">💾 Yedekleme{% if backup_warning %} <span class="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">!</span>{% endif %}</a>{% endif %}
+     <form method="post" action="{% url 'accounts:logout' %}" class="pt-1">
+       {% csrf_token %}
+       <button type="submit" class="block py-2 text-emerald-200">Çıkış Yap</button>
+@@ -89,6 +91,20 @@
+ 
+   <!-- Main content -->
+   <main class="flex-1 md:ml-0 mt-12 md:mt-0 p-4 md:p-8 max-w-7xl mx-auto w-full">
++    {% if backup_warning and request.resolver_match.url_name != 'backup' %}
++      <div role="alert" class="mb-4 rounded-xl border-2 border-red-600 bg-red-50 text-red-900 px-4 py-4">
++        <p class="font-bold text-base">⚠️ YEDEK ALINMADI — veriler risk altında</p>
++        <p class="text-sm mt-1">
++          {% if backup_status.last %}Son yedek <strong>{{ backup_status.days_since }} gün önce</strong> alındı ({{ backup_status.last.created_at|date:"d.m.Y H:i" }}).
++          {% else %}Bu sistemden <strong>hiç yedek alınmamış</strong>.{% endif %}
++          {{ backup_status.limit_days }} günden uzun süre yedeksiz kalırsa öğrenci ilerleme kayıtları geri getirilemeyebilir.
++        </p>
++        <form method="post" action="{% url 'core:backup' %}" class="mt-3">
++          {% csrf_token %}
++          <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg text-sm">💾 Şimdi yedek indir</button>
++        </form>
++      </div>
++    {% endif %}
+     {% if messages %}
+       <div class="mb-4 space-y-2">
+         {% for message in messages %}
+diff --git a/templates/core/backup.html b/templates/core/backup.html
+new file mode 100644
+index 0000000..fc2b8e9
+--- /dev/null
++++ b/templates/core/backup.html
+@@ -0,0 +1,62 @@
++{% extends "base.html" %}
++{% block title %}Yedekleme{% endblock %}
++{% block content %}
++<h1 class="text-2xl font-bold text-slate-800 mb-6">💾 Yedekleme</h1>
++
++{% if status.warn %}
++<div role="alert" class="mb-6 rounded-xl border-2 border-red-600 bg-red-50 text-red-900 px-4 py-4">
++  <p class="font-bold">⚠️ YEDEK GECİKTİ</p>
++  <p class="text-sm mt-1">
++    {% if status.last %}Son yedek {{ status.days_since }} gün önce alındı.{% else %}Hiç yedek alınmamış.{% endif %}
++    Lütfen aşağıdaki düğmeyle şimdi yedek indirin.
++  </p>
++</div>
++{% elif status.last %}
++<div class="mb-6 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 text-sm">
++  ✅ Yedek güncel. Son yedek: <strong>{{ status.last.created_at|date:"d.m.Y H:i" }}</strong>
++  ({{ status.days_since }} gün önce). {{ status.limit_days }} günü geçerse uyarı çıkar.
++</div>
++{% else %}
++<div class="mb-6 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 px-4 py-3 text-sm">
++  Henüz sistemde öğrenci verisi yok; veri girildikten sonra yedek alınması istenecek.
++</div>
++{% endif %}
++
++<div class="bg-white rounded-xl shadow p-6 mb-6">
++  <p class="text-sm text-slate-600 mb-4">
++    Tüm öğrenci, ders, ezber ve kullanıcı verilerini tek bir dosya olarak indirir.
++    Dosyayı bilgisayarınıza ya da Drive'a kaydedin; ayda bir en az bir kez almanız önerilir.
++  </p>
++  <form method="post">
++    {% csrf_token %}
++    <button type="submit" class="bg-brand-700 hover:bg-brand-800 text-white font-semibold px-5 py-2.5 rounded-lg">💾 Yedeği indir</button>
++  </form>
++  <p class="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-4">
++    🔒 Bu dosya öğrenci bilgilerini ve şifre özetlerini içerir. Kimseyle paylaşmayın, herkese açık bir yere yüklemeyin.
++    "Yedek alındı" kaydı, indirmenin başlatıldığını gösterir; dosyayı güvenli bir yere kaydetmek sizin sorumluluğunuzdadır.
++  </p>
++</div>
++
++<div class="bg-white rounded-xl shadow p-6 mb-6">
++  <h2 class="font-semibold mb-3">Son yedekler</h2>
++  {% if recent_backups %}
++  <table class="w-full text-sm">
++    <thead class="text-slate-500 text-left"><tr><th class="py-1">Tarih</th><th>Alan</th><th>Kayıt</th><th>Boyut</th></tr></thead>
++    <tbody>
++    {% for b in recent_backups %}
++      <tr class="border-t"><td class="py-1.5">{{ b.created_at|date:"d.m.Y H:i" }}</td><td>{{ b.created_by|default:"-" }}</td><td>{{ b.record_count }}</td><td>{{ b.size_bytes|filesizeformat }}</td></tr>
++    {% endfor %}
++    </tbody>
++  </table>
++  {% else %}<p class="text-sm text-slate-500">Henüz yedek alınmadı.</p>{% endif %}
++</div>
++
++<details class="bg-white rounded-xl shadow p-6 text-sm text-slate-700">
++  <summary class="font-semibold cursor-pointer">Yedekten geri yükleme (teknik kişi için)</summary>
++  <ol class="list-decimal ml-5 mt-3 space-y-1">
++    <li>Boş bir veritabanı hazırlayın ve <code>DATABASE_URL</code>'i ona yönlendirin.</li>
++    <li><code>python manage.py migrate</code></li>
++    <li><code>python manage.py loaddata hafizlik-yedek-....json</code></li>
++  </ol>
++</details>
++{% endblock %}
+-- 
+2.43.0
+

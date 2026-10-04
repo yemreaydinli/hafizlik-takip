@@ -1,34 +1,35 @@
 {% extends "base.html" %}
-{% block title %}Raporlar{% endblock %}
+{% block title %}Raporlar · Hafızlık Takip{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-slate-800 mb-6">📊 Raporlama</h1>
-
-<form method="get" action="{% url 'reports:generate' %}" class="bg-white rounded-xl shadow p-6 max-w-2xl space-y-4">
-  <div>
-    <label class="block text-sm font-medium text-slate-600 mb-1">Rapor Türü</label>
-    <select name="type" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-      <option value="daily">Günlük Rapor</option>
-      <option value="weekly">Haftalık Rapor</option>
-      <option value="monthly">Aylık Rapor</option>
-      <option value="attendance">Devamsızlık Raporu</option>
-      <option value="progress">Hafızlık İlerleme Raporu</option>
-      <option value="prediction">Tahmini Bitiş Raporu</option>
+<div class="page-head">
+  <div><h1 class="h1">Raporlar</h1><p class="sub">Raporu seçin, PDF veya Excel olarak indirin.</p></div>
+</div>
+<form method="get" action="{% url 'reports:generate' %}" class="card card-medium stack">
+  <div class="field">
+    <label class="label" for="type">Rapor türü</label>
+    <select name="type" id="type" class="input">
+      <option value="daily">Günlük rapor</option>
+      <option value="weekly">Haftalık rapor</option>
+      <option value="monthly">Aylık rapor</option>
+      <option value="attendance">Devamsızlık raporu</option>
+      <option value="progress">Hafızlık ilerleme raporu</option>
+      <option value="prediction">Tahmini bitiş raporu</option>
     </select>
   </div>
-  <div class="grid grid-cols-2 gap-4">
-    <div>
-      <label class="block text-sm font-medium text-slate-600 mb-1">Başlangıç Tarihi</label>
-      <input type="date" name="start" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+  <div class="field-grid two">
+    <div class="field">
+      <label class="label" for="start">Başlangıç tarihi</label>
+      <input type="date" name="start" id="start" class="input">
     </div>
-    <div>
-      <label class="block text-sm font-medium text-slate-600 mb-1">Bitiş Tarihi</label>
-      <input type="date" name="end" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+    <div class="field">
+      <label class="label" for="end">Bitiş tarihi</label>
+      <input type="date" name="end" id="end" class="input">
     </div>
   </div>
-  <p class="text-xs text-slate-400">Tarih aralığı yalnızca Günlük/Haftalık/Aylık raporlarda kullanılır. Diğer rapor türleri güncel duruma göre üretilir.</p>
-  <div class="flex gap-3">
-    <button type="submit" name="format" value="pdf" class="bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-5 py-2.5 rounded-lg">PDF İndir</button>
-    <button type="submit" name="format" value="excel" class="bg-slate-700 hover:bg-slate-800 text-white text-sm font-medium px-5 py-2.5 rounded-lg">Excel İndir</button>
+  <p class="help">Tarih aralığı yalnızca günlük, haftalık ve aylık raporlarda kullanılır. Diğer raporlar güncel duruma göre hazırlanır.</p>
+  <div class="actions actions-stack">
+    <button type="submit" name="format" value="excel" class="btn btn-secondary"><svg class="ic ic-sm"><use href="#i-sheet"/></svg>Excel indir</button>
+    <button type="submit" name="format" value="pdf" class="btn btn-primary"><svg class="ic ic-sm"><use href="#i-file"/></svg>PDF indir</button>
   </div>
 </form>
 {% endblock %}
