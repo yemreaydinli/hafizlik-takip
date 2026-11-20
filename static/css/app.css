@@ -114,7 +114,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 @media (min-width: 768px) { .hide-desktop { display: none !important; } }
 
 /* --- Uygulama kabuğu -------------------------------------------------- */
-.app { min-height: 100vh; }
+.app { min-height: 100vh; min-height: 100dvh; }
 .sidebar { display: none; }
 .main { padding: 16px 16px calc(var(--tab-h) + 32px + env(safe-area-inset-bottom)); max-width: 1120px; margin: 0 auto; }
 
@@ -144,21 +144,58 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
   backdrop-filter: saturate(180%) blur(18px); -webkit-backdrop-filter: saturate(180%) blur(18px);
   border-top: 1px solid var(--line);
 }
-.tab { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; font-size: 11px; font-weight: 500; color: var(--ink-3); background: none; border: 0; position: relative; }
-.tab.active { color: var(--accent); }
+/* Mobil alt sekme: dokunma geri bildirimi + kayan "hap" göstergesi */
+.tabbar, .tab, .sheet .nav-item, .icon-btn { -webkit-tap-highlight-color: transparent; }
+.tab {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; font-size: 11px; font-weight: 500;
+  color: var(--ink-3); background: none; border: 0; position: relative; isolation: isolate;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  transition: color .2s ease;
+}
+.tab::before {
+  content: ""; position: absolute; z-index: -1; top: 3px; left: 50%; width: 56px; height: 30px; border-radius: 16px;
+  background: var(--accent-soft); opacity: 0; transform: translateX(-50%) scale(.6);
+  transition: opacity .2s ease, transform .3s cubic-bezier(.2, .9, .3, 1.25);
+}
+.tab .ic { transition: transform .25s cubic-bezier(.2, .9, .3, 1.25); }
+.tab:active .ic { transform: scale(.86); transition-duration: .08s; }
+.tab.active { color: var(--accent); font-weight: 600; }
+.tab.active::before { opacity: 1; transform: translateX(-50%) scale(1); }
 .tab .badge-dot { position: absolute; top: 2px; left: calc(50% + 6px); width: 8px; height: 8px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); box-sizing: content-box; }
-.tab-fab span.fab { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-top: -18px; border-radius: 16px; background: var(--accent); color: #fff; box-shadow: 0 8px 20px rgba(5, 150, 105, .35); }
+.tab-fab::before { display: none; }
+.tab-fab span.fab { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; margin-top: -18px; border-radius: 16px; background: var(--accent); color: #fff; box-shadow: 0 8px 20px rgba(5, 150, 105, .35); transition: transform .15s ease, box-shadow .15s ease; }
+.tab-fab:active span.fab { transform: scale(.92); box-shadow: 0 4px 10px rgba(5, 150, 105, .3); }
+.tab-fab:active .ic { transform: none; }
 .tab-fab { color: var(--ink-2); }
+
+/* Sayfa geçişi: bar sabit kalır, hap yeni sekmeye kayar, içerik yumuşakça değişir */
+@view-transition { navigation: auto; }
+.tabbar { view-transition-name: tabbar; }
+.topbar { view-transition-name: topbar; }
+.tab.active::before { view-transition-name: tab-pill; }
+::view-transition-group(tab-pill) { animation-duration: .32s; animation-timing-function: cubic-bezier(.3, .9, .3, 1); }
+::view-transition-old(root) { animation-duration: .12s; }
+::view-transition-new(root) { animation-duration: .2s; }
+::view-transition-group(tabbar), ::view-transition-group(topbar) { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+/* View Transitions desteklemeyen tarayıcılarda: hap yüklenince küçük bir "pop" yapar */
+@supports not (view-transition-name: none) {
+  .tab.active::before { animation: pill-in .32s cubic-bezier(.2, .9, .3, 1.25); }
+  @keyframes pill-in { from { opacity: 0; transform: translateX(-50%) scale(.5); } }
+}
 
 .sheet-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .4); opacity: 0; pointer-events: none; visibility: hidden; transition: opacity .2s, visibility 0s linear .2s; }
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
   background: var(--surface); border-radius: 22px 22px 0 0; border: 1px solid var(--line); border-bottom: 0;
   padding: 8px 12px calc(16px + env(safe-area-inset-bottom)); transform: translateY(105%); visibility: hidden; transition: transform .25s ease, visibility 0s linear .25s;
-  box-shadow: var(--shadow-lg); max-height: 85vh; overflow: auto;
+  box-shadow: var(--shadow-lg); max-height: 85vh; max-height: 85dvh; overflow: auto; overscroll-behavior: contain;
 }
 .sheet-open .sheet { transform: none; visibility: visible; transition: transform .25s ease, visibility 0s; }
 .sheet-open .sheet-backdrop { opacity: 1; pointer-events: auto; visibility: visible; transition: opacity .2s, visibility 0s; }
+body.sheet-open { overflow: hidden; }
 .sheet-grip { width: 36px; height: 4px; border-radius: 4px; background: var(--line-strong); margin: 6px auto 10px; }
 
 @media (min-width: 768px) {
