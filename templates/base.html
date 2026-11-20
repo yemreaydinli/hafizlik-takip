@@ -12,9 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Hafızlık Takip">
 <link rel="icon" type="image/svg+xml" href="{% static 'img/logo.svg' %}">
 <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="preload" href="{% static 'fonts/inter/inter-latin-wght-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{% static 'css/app.css' %}">
 {% block extra_head %}{% endblock %}
 </head>

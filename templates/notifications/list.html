@@ -3,6 +3,12 @@
 {% block content %}
 <div class="page-head">
   <div><h1 class="h1">Uyarılar</h1><p class="sub">Duraklama, devamsızlık ve hedef sapması bildirimleri.</p></div>
+  {% if unread_total %}
+  <form method="post" action="{% url 'notifications:mark_all_read' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm"><svg class="ic ic-sm"><use href="#i-check-circle"/></svg>Tümünü okundu yap ({{ unread_total }})</button>
+  </form>
+  {% endif %}
 </div>
 <div class="card card-flush">
   {% if notifications %}
